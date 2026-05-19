@@ -25,6 +25,7 @@
 #include <iDynTree/Model/Traversal.h>
 
 #include <rapidcsv.h>
+#include <vector>
 
 
 /**
@@ -92,7 +93,7 @@ private:
      * @brief Populate the exported frame information map from the Creo model handle.
      * @param modelhdl The Creo model handle.
      */
-    void populateExportedFrameInfoMap(pfcModel_ptr modelhdl);
+    void populateExportedFrameInfoMap(pfcModel_ptr modelhdl, const std::string& link_key);
 
     /**
      * @brief Read assigned inertias from the loaded YAML configuration.
@@ -115,7 +116,7 @@ private:
      * @param mesh_transform The 3D transform associated to the mesh.
      * @return True if successful, false otherwise.
      */
-    bool addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform);
+    bool addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform, const std::string& link_base_name, const std::string& link_unique_name);
 
     /**
      * @brief Load YAML configuration from a file.
@@ -124,7 +125,7 @@ private:
      */
     bool loadYamlConfig(const std::string& filename);
 
-    bool processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, iDynTree::Transform parentAsm_H_csysAsm = iDynTree::Transform::Identity());
+    bool processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, const std::string& parent_path_key, iDynTree::Transform parentAsm_H_csysAsm = iDynTree::Transform::Identity());
 
     bool setJointParametersFromCsv(const rapidcsv::Document& csv, const std::string& joint_name, 
         iDynTree::IJoint& joint, double conversion_factor);
@@ -136,12 +137,22 @@ private:
      */
     std::string getRenameElementFromConfig(const std::string& elem_name);
 
+    std::string registerUniqueName(const std::string& base_name, std::map<std::string, int>& name_counts);
+    std::string resolveUniqueLinkName(const std::string& base_name) const;
+    std::string resolveUniqueJointName(const std::string& base_name) const;
+
     iDynTree::Model idyn_model; /**< The iDynTree model representing the mechanism tree. */
-    std::map<std::string, JointInfo> joint_info_map; /**< Map storing information about joints. */
-    std::map<std::string, LinkInfo> link_info_map; /**< Map storing information about links. */
+    std::map<std::string, JointInfo> joint_info_map; /**< Map storing information about joints (keyed by occurrence). */
+    std::map<std::string, LinkInfo> link_info_map; /**< Map storing information about links (keyed by occurrence). */
     std::map<std::string, ExportedFrameInfo> exported_frame_info_map; /**< Map storing information about exported frames. */
     std::map<std::string, std::array<double,3>> assigned_inertias_map; /**< Map storing assigned inertias. 0 -> xx, 1 -> yy, 2 -> zz. */
     std::map<std::string, CollisionGeometryInfo> assigned_collision_geometry_map; /**< Map storing assigned collision geometries. */
+    std::map<std::string, int> link_name_counts; /**< Map counting occurrences of link base names. */
+    std::map<std::string, int> joint_name_counts; /**< Map counting occurrences of joint base names. */
+    std::map<std::string, std::string> link_key_to_unique_name; /**< Map from link occurrence key to unique name. */
+    std::map<std::string, std::string> joint_key_to_unique_name; /**< Map from joint occurrence key to unique name. */
+    std::map<std::string, std::vector<std::string>> link_base_name_to_keys; /**< Map from link base name to link keys. */
+    std::map<std::string, std::vector<std::string>> joint_base_name_to_keys; /**< Map from joint base name to joint keys. */
     YAML::Node config; /**< YAML configuration node, storing the content of the configuration file. */
     bool exportAllUseradded{ false }; /**< Flag indicating whether to export all user-added frames. */
     bool exportFirstBaseLinkAdditionalFrameAsFakeURDFBase{ false };  /**< Flag to export the first additional frame attached to the base link as fake urdf base. */

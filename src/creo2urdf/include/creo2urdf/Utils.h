@@ -236,6 +236,11 @@ struct JointInfo {
     std::string datum_name{""}; ///< Name of the joint's associated datum (axis for revolute, csys for fixed).
     std::string parent_link_name{""}; ///< Name of the parent link connected to the joint.
     std::string child_link_name{""}; ///< Name of the child link connected to the joint.
+    std::string parent_link_base_name{""}; ///< Renamed base name of the parent link.
+    std::string child_link_base_name{""}; ///< Renamed base name of the child link.
+    std::string parent_link_key{""}; ///< Unique key of the parent link occurrence.
+    std::string child_link_key{""}; ///< Unique key of the child link occurrence.
+    std::string base_name{""}; ///< Base (non-unique) joint name.
     JointType type{JointType::None}; ///< Type of the joint (default is none).
 
     /**
@@ -259,7 +264,9 @@ struct JointInfo {
  * @brief Information about a link, including its name, model handle, transformation, and frame name.
  */
 struct LinkInfo {
-    std::string name{""}; ///< Name of the link.
+    std::string name{""}; ///< Unique name of the link.
+    std::string base_name{""}; ///< Renamed base name of the link.
+    std::string raw_name{""}; ///< Original Creo name of the link.
     pfcModel_ptr modelhdl{nullptr}; ///< Pointer to the Creo model associated with the link.
     iDynTree::Transform rootAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the root to the link's reference frame.
     iDynTree::Transform csysAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the assembly to the link's reference frame.
@@ -445,6 +452,21 @@ std::pair<bool, iDynTree::Transform> getTransformFromPart(pfcModel_ptr modelhdl,
  * @return std::tuple<bool, iDynTree::Direction, iDynTree::Position>>  Tuple containing a success/failure flag, the axis direction, and the position of the middle point of the axis in the link csys in order that the frame lies on the axis.
  */
 std::tuple<bool, iDynTree::Direction, iDynTree::Position> getAxisFromPart(pfcModel_ptr modelhdl, const std::string& axis_name, const std::string& link_frame_name, const array<double, 3>& scale);
+
+/**
+ * @brief Build a unique key from a component path ID sequence.
+ * @param seq The component path ID sequence.
+ * @return The component path key in the form "id/id/...".
+ */
+std::string componentPathToKey(const xintsequence_ptr& seq);
+
+/**
+ * @brief Append a component ID to a parent path key.
+ * @param parent_key The parent path key (empty for root).
+ * @param component_id The component feature ID.
+ * @return The combined component path key.
+ */
+std::string appendPathKey(const std::string& parent_key, int component_id);
 
 /**
  * @brief Extracts the folder path from a file path.

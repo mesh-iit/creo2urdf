@@ -18,7 +18,7 @@
 
 #include <Eigen/Core>
 
-bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, iDynTree::Transform parentAsm_H_csysAsm) {
+bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, const std::string& parent_path_key, iDynTree::Transform parentAsm_H_csysAsm) {
 
     for (int i = 0; i < asmListItems->getarraysize(); i++)
     {
@@ -45,9 +45,15 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
 
         xintsequence_ptr seq = xintsequence::create();
         seq->append(asmItemAsFeat->GetId());
+        std::string component_path_key = appendPathKey(parent_path_key, asmItemAsFeat->GetId());
 
         ElementTreeManager element_tree_manager;
-        element_tree_manager.populateJointInfoFromElementTree(asmItemAsFeat, joint_info_map);
+        JointInfo joint_info;
+        if (element_tree_manager.populateJointInfoFromElementTree(asmItemAsFeat, joint_info)) {
+            joint_info.parent_link_base_name = getRenameElementFromConfig(joint_info.parent_link_name);
+            joint_info.child_link_base_name = getRenameElementFromConfig(joint_info.child_link_name);
+            joint_info_map.insert({ component_path_key, joint_info });
+        }
 
         pfcComponentPath_ptr comp_path = pfcCreateComponentPath(pfcAssembly::cast(model_owner), seq);
 
@@ -90,7 +96,7 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
         if (type == pfcMDL_ASSEMBLY) {
             auto sub_asm_component_list = component_handle->ListItems(pfcModelItemType::pfcITEM_FEATURE);
 
-            bool ok = processAsmItems(sub_asm_component_list, component_handle, parentAsm_H_linkFrame);
+            bool ok = processAsmItems(sub_asm_component_list, component_handle, component_path_key, parentAsm_H_linkFrame);
             if (!ok) {
                 return false;
             }
@@ -125,12 +131,16 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
             }
         }
 
-        LinkInfo l_info{ urdf_link_name, component_handle, parentAsm_H_linkFrame, csysAsm_H_linkFrame, link_frame_name };
-        link_info_map.insert(std::make_pair(link_name, l_info));
-        populateExportedFrameInfoMap(component_handle);
+        std::string unique_link_name = registerUniqueName(urdf_link_name, link_name_counts);
+        link_key_to_unique_name[component_path_key] = unique_link_name;
+        link_base_name_to_keys[urdf_link_name].push_back(component_path_key);
 
-        idyn_model.addLink(urdf_link_name, link);
-        if (!addMeshAndExport(component_handle, link_frame_name)) {
+        LinkInfo l_info{ unique_link_name, urdf_link_name, link_name, component_handle, parentAsm_H_linkFrame, csysAsm_H_linkFrame, link_frame_name };
+        link_info_map.insert(std::make_pair(component_path_key, l_info));
+        populateExportedFrameInfoMap(component_handle, component_path_key);
+
+        idyn_model.addLink(unique_link_name, link);
+        if (!addMeshAndExport(component_handle, link_frame_name, urdf_link_name, unique_link_name)) {
             printToMessageWindow("Failed to export mesh for " + link_name, c2uLogLevel::WARN);
             if (warningsAreFatal) {
                 return false;
@@ -149,6 +159,12 @@ void Creo2Urdf::OnCommand() {
         exported_frame_info_map.clear();
         assigned_inertias_map.clear();
         assigned_collision_geometry_map.clear();
+        link_name_counts.clear();
+        joint_name_counts.clear();
+        link_key_to_unique_name.clear();
+        joint_key_to_unique_name.clear();
+        link_base_name_to_keys.clear();
+        joint_base_name_to_keys.clear();
     }
     m_session_ptr = pfcGetProESession();
     if (!m_session_ptr) {
@@ -275,7 +291,7 @@ void Creo2Urdf::OnCommand() {
     sensorizer.readSensorsFromConfig(config);
 
     // Let's traverse the model tree and get all links and axis properties
-    bool ok = processAsmItems(asm_component_list, m_root_asm_model_ptr);
+    bool ok = processAsmItems(asm_component_list, m_root_asm_model_ptr, "");
     if (!ok) {
         printToMessageWindow("Failed to process the assembly", c2uLogLevel::WARN);
         return;
@@ -283,29 +299,33 @@ void Creo2Urdf::OnCommand() {
 
     // Now we have to add joints to the iDynTree model
 
-    for (auto & joint_info : joint_info_map) {
-        auto parent_link_name = joint_info.second.parent_link_name;
-        auto child_link_name = joint_info.second.child_link_name;
-        auto datum_name = joint_info.second.datum_name;
-        auto joint_name = getRenameElementFromConfig(joint_info.first);
+    for (auto & joint_info_pair : joint_info_map) {
+        auto& joint_info = joint_info_pair.second;
+        auto parent_link_key = joint_info.parent_link_key;
+        auto child_link_key = joint_info.child_link_key;
+        auto datum_name = joint_info.datum_name;
+        auto joint_base_name = getRenameElementFromConfig(joint_info.base_name);
+        auto joint_name = registerUniqueName(joint_base_name, joint_name_counts);
+        joint_key_to_unique_name[joint_info_pair.first] = joint_name;
+        joint_base_name_to_keys[joint_base_name].push_back(joint_info_pair.first);
 
         // This handles the case of a "cut" assembly, where we have an axis but we miss the child link.
-        if (child_link_name.empty() || link_info_map.find(parent_link_name) == link_info_map.end() || link_info_map.find(child_link_name) == link_info_map.end()) {
-            printToMessageWindow("Skipping joint " + joint_name + " child link name " + child_link_name + " parent link name " + parent_link_name , c2uLogLevel::WARN);
+        if (child_link_key.empty() || link_info_map.find(parent_link_key) == link_info_map.end() || link_info_map.find(child_link_key) == link_info_map.end()) {
+            printToMessageWindow("Skipping joint " + joint_name + " child link name " + joint_info.child_link_name + " parent link name " + joint_info.parent_link_name , c2uLogLevel::WARN);
             continue;
         }
 
-        auto asm_owner_H_parent_link = link_info_map.at(parent_link_name).rootAsm_H_linkFrame;
-        auto asm_owner_H_child_link = link_info_map.at(child_link_name).rootAsm_H_linkFrame;
-        auto parent_model = link_info_map.at(parent_link_name).modelhdl;
-        auto parent_link_frame = link_info_map.at(parent_link_name).link_frame_name;
+        auto asm_owner_H_parent_link = link_info_map.at(parent_link_key).rootAsm_H_linkFrame;
+        auto asm_owner_H_child_link = link_info_map.at(child_link_key).rootAsm_H_linkFrame;
+        auto parent_model = link_info_map.at(parent_link_key).modelhdl;
+        auto parent_link_frame = link_info_map.at(parent_link_key).link_frame_name;
 
         //printToMessageWindow("Parent link H " + asm_owner_H_parent_link.toString());
         //printToMessageWindow("Child  link H " + asm_owner_H_child_link.toString());
         iDynTree::Transform parentLink_H_childLink = iDynTree::Transform::Identity();
         parentLink_H_childLink = asm_owner_H_parent_link.inverse() * asm_owner_H_child_link;
 
-        if (joint_info.second.type == JointType::Revolute || joint_info.second.type == JointType::Linear) {
+        if (joint_info.type == JointType::Revolute || joint_info.type == JointType::Linear) {
 
             iDynTree::Direction direction;
             iDynTree::Position axis_mid_point_pos_in_parent;
@@ -313,7 +333,7 @@ void Creo2Urdf::OnCommand() {
 
             if (!ret)
             {
-                printToMessageWindow("Failed to get the axis from the part " + parent_link_name + ", skipping " + joint_name, c2uLogLevel::WARN);
+                printToMessageWindow("Failed to get the axis from the part " + joint_info.parent_link_name + ", skipping " + joint_name, c2uLogLevel::WARN);
                 if (warningsAreFatal) {
                     return;
                 }
@@ -323,12 +343,10 @@ void Creo2Urdf::OnCommand() {
             }
 
             if (config["reverseRotationAxis"].IsDefined() && 
-                config["reverseRotationAxis"].Scalar().find(joint_name) != std::string::npos)
+                config["reverseRotationAxis"].Scalar().find(joint_base_name) != std::string::npos)
             {
                 direction = direction.reverse();
             }
-
-            auto urdf_parent_link_name = getRenameElementFromConfig(parent_link_name);
 
             iDynTree::Axis idyn_axis{ direction, parentLink_H_childLink.getPosition() };
 
@@ -339,52 +357,52 @@ void Creo2Urdf::OnCommand() {
             }
 
             std::shared_ptr<iDynTree::IJoint> joint_sh_ptr;
-            if (joint_info.second.type == JointType::Revolute) {
+            if (joint_info.type == JointType::Revolute) {
                 joint_sh_ptr = std::make_shared<iDynTree::RevoluteJoint>();
                 dynamic_cast<iDynTree::RevoluteJoint*>(joint_sh_ptr.get())->setAxis(idyn_axis);
             }
-            else if (joint_info.second.type == JointType::Linear) {
+            else if (joint_info.type == JointType::Linear) {
                 joint_sh_ptr = std::make_shared<iDynTree::PrismaticJoint>();
                 dynamic_cast<iDynTree::PrismaticJoint*>(joint_sh_ptr.get())->setAxis(idyn_axis);
             }
 
             joint_sh_ptr->setRestTransform(parentLink_H_childLink);
             double conversion_factor = 1.0;
-            if (joint_info.second.type == JointType::Revolute) {
+            if (joint_info.type == JointType::Revolute) {
                 conversion_factor = deg2rad;
             }
 
             // Read limits from CSV data, until it is possible to do so from Creo directly
-            setJointParametersFromCsv(joints_csv_table, joint_name, *joint_sh_ptr, conversion_factor);
+            setJointParametersFromCsv(joints_csv_table, joint_base_name, *joint_sh_ptr, conversion_factor);
 
-            if (idyn_model.addJoint(getRenameElementFromConfig(parent_link_name),
-                getRenameElementFromConfig(child_link_name), joint_name, joint_sh_ptr.get()) == iDynTree::JOINT_INVALID_INDEX) {
+            if (idyn_model.addJoint(link_info_map.at(parent_link_key).name,
+                link_info_map.at(child_link_key).name, joint_name, joint_sh_ptr.get()) == iDynTree::JOINT_INVALID_INDEX) {
                 printToMessageWindow("FAILED TO ADD JOINT " + joint_name, c2uLogLevel::WARN);
                 if (warningsAreFatal) {
                     return;
                 }
             }
         }
-        else if (joint_info.second.type == JointType::Fixed) {
+        else if (joint_info.type == JointType::Fixed) {
             iDynTree::FixedJoint joint(parentLink_H_childLink);
-            if (idyn_model.addJoint(getRenameElementFromConfig(parent_link_name),
-                getRenameElementFromConfig(child_link_name), joint_name, &joint) == iDynTree::JOINT_INVALID_INDEX) {
+            if (idyn_model.addJoint(link_info_map.at(parent_link_key).name,
+                link_info_map.at(child_link_key).name, joint_name, &joint) == iDynTree::JOINT_INVALID_INDEX) {
                 printToMessageWindow("FAILED TO ADD JOINT " + joint_name, c2uLogLevel::WARN);
                 if (warningsAreFatal) {
                     return;
                 }
             }
         }
-            else if (joint_info.second.type == JointType::Spherical) {
+            else if (joint_info.type == JointType::Spherical) {
             iDynTree::SphericalJoint joint;
             joint.setAttachedLinks(
-                idyn_model.getLinkIndex(getRenameElementFromConfig(parent_link_name)),
-                idyn_model.getLinkIndex(getRenameElementFromConfig(child_link_name))
+                idyn_model.getLinkIndex(link_info_map.at(parent_link_key).name),
+                idyn_model.getLinkIndex(link_info_map.at(child_link_key).name)
             );
             joint.setRestTransform(parentLink_H_childLink);
             iDynTree::Transform parent_link_H_joint_center = iDynTree::Transform::Identity();
             std::tie(ret, parent_link_H_joint_center) = getTransformFromPart(parent_model, datum_name, scale);
-            joint.setJointCenter(idyn_model.getLinkIndex(getRenameElementFromConfig(parent_link_name)), parent_link_H_joint_center.getPosition());
+            joint.setJointCenter(idyn_model.getLinkIndex(link_info_map.at(parent_link_key).name), parent_link_H_joint_center.getPosition());
             if (idyn_model.addJoint(joint_name, &joint) == iDynTree::JOINT_INVALID_INDEX) {
                 printToMessageWindow("FAILED TO ADD JOINT " + joint_name, c2uLogLevel::WARN);
                 if (warningsAreFatal) {
@@ -394,10 +412,26 @@ void Creo2Urdf::OnCommand() {
         }
     }
 
+    for (auto& exported_frame_info : exported_frame_info_map) {
+        exported_frame_info.second.frameReferenceLink = resolveUniqueLinkName(exported_frame_info.second.frameReferenceLink);
+    }
+
+    if (!sensorizer.ft_sensors.empty()) {
+        std::map<std::string, FTSensorInfo> remapped_ft_sensors;
+        for (const auto& ft : sensorizer.ft_sensors) {
+            std::string unique_joint_name = resolveUniqueJointName(ft.first);
+            auto insert_res = remapped_ft_sensors.insert({ unique_joint_name, ft.second });
+            if (!insert_res.second) {
+                printToMessageWindow("Duplicate FT sensor joint name after resolving: " + unique_joint_name, c2uLogLevel::WARN);
+            }
+        }
+        sensorizer.ft_sensors.swap(remapped_ft_sensors);
+    }
+
     // Assign the transforms for the sensors
-    sensorizer.assignTransformToSensors(exported_frame_info_map, link_info_map, scale);
+    sensorizer.assignTransformToSensors(exported_frame_info_map, link_info_map, link_base_name_to_keys, scale);
     // Assign the transforms for the ft sensors
-    sensorizer.assignTransformToFTSensor(exported_frame_info_map, link_info_map, joint_info_map, scale);
+    sensorizer.assignTransformToFTSensor(exported_frame_info_map, link_info_map, link_base_name_to_keys, joint_info_map, scale);
 
     // Let's add sensors and ft sensors frames
 
@@ -463,7 +497,7 @@ void Creo2Urdf::OnCommand() {
     }
 
     if (config["root"].IsDefined())
-        export_options.baseLink = config["root"].Scalar();
+        export_options.baseLink = resolveUniqueLinkName(config["root"].Scalar());
     else
         export_options.baseLink = "root_link";
 
@@ -612,7 +646,7 @@ iDynTree::SpatialInertia Creo2Urdf::computeSpatialInertiafromCreo(pfcMassPropert
     return sp_inertia;
 }
 
-void Creo2Urdf::populateExportedFrameInfoMap(pfcModel_ptr modelhdl) {
+void Creo2Urdf::populateExportedFrameInfoMap(pfcModel_ptr modelhdl, const std::string& link_key) {
 
     // The revolute joints are defined by aligning along the
     // rotational axis
@@ -633,14 +667,14 @@ void Creo2Urdf::populateExportedFrameInfoMap(pfcModel_ptr modelhdl) {
                 continue;
             }
             ExportedFrameInfo ef_info;
-            ef_info.frameReferenceLink = getRenameElementFromConfig(link_name);
+            ef_info.frameReferenceLink = link_info_map.at(link_key).name;
             ef_info.exportedFrameName = csys_name;
             exported_frame_info_map.insert(std::make_pair(csys_name, ef_info));
         }
         
         if (exported_frame_info_map.find(csys_name) != exported_frame_info_map.end()) {
             auto& exported_frame_info = exported_frame_info_map.at(csys_name);
-            auto& link_info = link_info_map.at(link_name);
+            auto& link_info = link_info_map.at(link_key);
             bool ret{ false };
             iDynTree::Transform csys_H_additionalFrame {iDynTree::Transform::Identity()};
             iDynTree::Transform csys_H_linkFrame {iDynTree::Transform::Identity()};
@@ -720,19 +754,14 @@ void Creo2Urdf::readExportedFramesFromConfig() {
     }
 }
 
-bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform)
+bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform, const std::string& link_base_name, const std::string& link_unique_name)
 {
     bool export_mesh = true;
     std::string file_extension = ".stl";
     std::string meshFormat = "stl_binary";
-    std::string link_name = component_handle->GetFullName();
-    std::string renamed_link_name = link_name;
+    std::string link_name = link_unique_name;
+    std::string renamed_link_name = link_base_name;
  
-    if (config["rename"][link_name].IsDefined())
-    {
-        renamed_link_name = config["rename"][link_name].Scalar();
-    }
-
     if (config["exportMeshes"].IsDefined())
     {
         export_mesh = config["exportMeshes"].as<bool>();
@@ -741,8 +770,11 @@ bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::strin
 
     if (config["stringToRemoveFromMeshFileName"].IsDefined())
     {
-        link_name.erase(link_name.find(config["stringToRemoveFromMeshFileName"].Scalar()), 
-            config["stringToRemoveFromMeshFileName"].Scalar().length());
+        auto remove_token = config["stringToRemoveFromMeshFileName"].Scalar();
+        auto pos = link_name.find(remove_token);
+        if (pos != std::string::npos) {
+            link_name.erase(pos, remove_token.length());
+        }
     }
 
     // Make all alphabetic characters lowercase
@@ -868,7 +900,7 @@ bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::strin
             iDynTree::Box idyn_box;
             idyn_box.setX(geometry_info.size[0]); idyn_box.setY(geometry_info.size[1]); idyn_box.setZ(geometry_info.size[2]);
             idyn_box.setLink_H_geometry(geometry_info.link_H_geometry);
-            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(renamed_link_name)].push_back(idyn_box.clone());
+            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(link_unique_name)].push_back(idyn_box.clone());
         }
             break;
         case ShapeType::Cylinder: {
@@ -876,18 +908,18 @@ bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::strin
             idyn_cylinder.setLength(geometry_info.length);
             idyn_cylinder.setRadius(geometry_info.radius);
             idyn_cylinder.setLink_H_geometry(geometry_info.link_H_geometry);
-            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(renamed_link_name)].push_back(idyn_cylinder.clone());
+            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(link_unique_name)].push_back(idyn_cylinder.clone());
         }
             break;
         case ShapeType::Sphere: {
             iDynTree::Sphere idyn_sphere;
             idyn_sphere.setRadius(geometry_info.radius);
             idyn_sphere.setLink_H_geometry(geometry_info.link_H_geometry);
-            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(renamed_link_name)].push_back(idyn_sphere.clone());
+            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(link_unique_name)].push_back(idyn_sphere.clone());
         }
             break;
         case ShapeType::None:
-            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(renamed_link_name)].clear();
+            idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(link_unique_name)].clear();
             break;
         default:
             break;
@@ -895,9 +927,9 @@ bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::strin
 
     }
     else {
-        idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(renamed_link_name)].push_back(visualMesh.clone());
+        idyn_model.collisionSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(link_unique_name)].push_back(visualMesh.clone());
     }
-    idyn_model.visualSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(renamed_link_name)].push_back(visualMesh.clone());
+    idyn_model.visualSolidShapes().getLinkSolidShapes()[idyn_model.getLinkIndex(link_unique_name)].push_back(visualMesh.clone());
 
 
     return true;
@@ -945,6 +977,59 @@ std::string Creo2Urdf::getRenameElementFromConfig(const std::string& elem_name)
         printToMessageWindow("Element " + elem_name + " is not present in the configuration file!", c2uLogLevel::WARN);
         return elem_name;
     }
+}
+
+std::string Creo2Urdf::registerUniqueName(const std::string& base_name, std::map<std::string, int>& name_counts)
+{
+    int& count = name_counts[base_name];
+    if (count == 0) {
+        count = 1;
+        return base_name;
+    }
+
+    std::string unique_name = base_name + "_" + std::to_string(count);
+    count += 1;
+    return unique_name;
+}
+
+std::string Creo2Urdf::resolveUniqueLinkName(const std::string& base_name) const
+{
+    auto it = link_base_name_to_keys.find(base_name);
+    if (it == link_base_name_to_keys.end() || it->second.empty()) {
+        return base_name;
+    }
+
+    if (it->second.size() > 1) {
+        printToMessageWindow("Multiple link occurrences found for " + base_name + ", using the first one", c2uLogLevel::WARN);
+    }
+
+    auto key = it->second.front();
+    auto name_it = link_key_to_unique_name.find(key);
+    if (name_it == link_key_to_unique_name.end()) {
+        return base_name;
+    }
+
+    return name_it->second;
+}
+
+std::string Creo2Urdf::resolveUniqueJointName(const std::string& base_name) const
+{
+    auto it = joint_base_name_to_keys.find(base_name);
+    if (it == joint_base_name_to_keys.end() || it->second.empty()) {
+        return base_name;
+    }
+
+    if (it->second.size() > 1) {
+        printToMessageWindow("Multiple joint occurrences found for " + base_name + ", using the first one", c2uLogLevel::WARN);
+    }
+
+    auto key = it->second.front();
+    auto name_it = joint_key_to_unique_name.find(key);
+    if (name_it == joint_key_to_unique_name.end()) {
+        return base_name;
+    }
+
+    return name_it->second;
 }
 
 pfcCommandAccess Creo2UrdfAccess::OnCommandAccess(xbool AllowErrorMessages)

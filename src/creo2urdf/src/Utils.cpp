@@ -302,3 +302,26 @@ void mergeYAMLNodes(YAML::Node& dest, const YAML::Node& src) {
         dest = src;
     }
 }
+
+std::string componentPathToKey(const xintsequence_ptr& seq) {
+    if (!seq) {
+        return "";
+    }
+
+    std::string key;
+    for (int i = 0; i < seq->getarraysize(); i++) {
+        if (i > 0) {
+            key += "/";
+        }
+        key += std::to_string(seq->get(i));
+    }
+
+    return key;
+}
+
+std::string appendPathKey(const std::string& parent_key, int component_id) {
+    if (parent_key.empty()) {
+        return std::to_string(component_id);
+    }
+    return parent_key + "/" + std::to_string(component_id);
+}

@@ -10,13 +10,14 @@
  */
 
 #include <creo2urdf/ElementTreeManager.h>
+#include <pfcAssembly.h>
 
 ElementTreeManager::ElementTreeManager()
 {}
 
-ElementTreeManager::ElementTreeManager(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map)
+ElementTreeManager::ElementTreeManager(pfcFeature_ptr feat, JointInfo& joint_info)
 {
-    if (!populateJointInfoFromElementTree(feat, joint_info_map))
+    if (!populateJointInfoFromElementTree(feat, joint_info))
     {
         printToMessageWindow("Feature does not support element trees!", c2uLogLevel::WARN);
     }
@@ -24,7 +25,7 @@ ElementTreeManager::ElementTreeManager(pfcFeature_ptr feat, std::map<std::string
 
 ElementTreeManager::~ElementTreeManager() {}
 
-bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map)
+bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, JointInfo& joint_info)
 {
     wfeat = wfcWFeature::cast(feat);
 
@@ -47,7 +48,9 @@ bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, s
     }
     joint.child_link_name = getChildName();
     joint.parent_link_name = getParentName();
-    std::string joint_name = joint.parent_link_name + "--" + joint.child_link_name;
+    joint.child_link_key = child_link_key;
+    joint.parent_link_key = parent_link_key;
+    joint.base_name = joint.parent_link_name + "--" + joint.child_link_name;
     joint.type = proAsmCompSetType_to_JointType.at(static_cast<ProAsmcompSetType>(getConstraintType()));
 
     if (joint.type == JointType::Revolute || joint.type == JointType::Linear)
@@ -68,7 +71,7 @@ bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, s
         return false;
     }
 
-    joint_info_map.insert({ joint_name, joint });
+    joint_info = joint;
 
     return true;
 }
@@ -182,13 +185,20 @@ bool ElementTreeManager::retrieveSolidReferences()
             return false;
 
         for (int m = 0; m < extrefs->getarraysize(); m++) {
-            auto extref = extrefs->get(m)->GetAsmcomponents()->GetPathToRef()->GetLeaf();
+            auto asm_components = extrefs->get(m)->GetAsmcomponents();
+            auto path_to_ref = asm_components->GetPathToRef();
+            if (!path_to_ref) {
+                continue;
+            }
+            auto extref = path_to_ref->GetLeaf();
             // While defining a constraint the first part is the parent link and the second part is the child link
             if (extref && !parent_solid) {
                 parent_solid = extref;
+                parent_link_key = componentPathToKey(path_to_ref->GetComponentIds());
             }
             else if (extref && !child_solid && parent_solid) {
                 child_solid = extref;
+                child_link_key = componentPathToKey(path_to_ref->GetComponentIds());
             }
             else {
                 break;

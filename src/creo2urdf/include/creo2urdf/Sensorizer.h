@@ -50,6 +50,7 @@ struct Sensorizer {
      */
     void assignTransformToFTSensor(const std::map<std::string, ExportedFrameInfo>& exported_frame_info_map,
                                    const std::map<std::string, LinkInfo>& link_info_map,
+                                   const std::map<std::string, std::vector<std::string>>& link_base_name_to_keys,
                                    const std::map<std::string, JointInfo>& joint_info_map,
                                    const std::array<double, 3> scale);
 
@@ -61,6 +62,7 @@ struct Sensorizer {
      */
     void assignTransformToSensors(const std::map<std::string, ExportedFrameInfo>& exported_frame_info_map,
                                   const std::map<std::string, LinkInfo>& link_info_map,
+                                  const std::map<std::string, std::vector<std::string>>& link_base_name_to_keys,
                                   const std::array<double, 3> scale);
 
     /**

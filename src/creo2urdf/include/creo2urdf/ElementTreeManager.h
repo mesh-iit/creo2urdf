@@ -51,7 +51,7 @@ public:
      * @param[in] feat A pointer to a part casted as feature.
      * @param[out] joint_info_map A map containing joint information.
      */
-    ElementTreeManager(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map);
+    ElementTreeManager(pfcFeature_ptr feat, JointInfo& joint_info);
 
     /**
      * @brief Destructor for ElementTreeManager.
@@ -64,7 +64,7 @@ public:
      * @param[out] joint_info_map A map containing joint information.
      * @return True if successful, false otherwise.
      */
-    bool populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map);
+    bool populateJointInfoFromElementTree(pfcFeature_ptr feat, JointInfo& joint_info);
 
     /**
      * @brief Gets the constraint type between two assembled parts.
@@ -89,6 +89,8 @@ private:
     wfcWFeature_ptr wfeat{ nullptr };   ///< Pointer to the part as feature.
     pfcSolid_ptr parent_solid{ nullptr };         ///< Pointer to the parent solid.
     pfcSolid_ptr child_solid{ nullptr };          ///< Pointer to the child solid.
+    std::string parent_link_key{ "" };           ///< Unique key of the parent link occurrence.
+    std::string child_link_key{ "" };            ///< Unique key of the child link occurrence.
 
     /*
      * @brief Retrieves the name of a common datum for the given model item type.
