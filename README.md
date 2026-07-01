@@ -19,7 +19,10 @@ Generate URDF model from CREO Parametric mechanisms.
 ## Installation from binaries
 
 > [!NOTE]
-> The provided dll has not been unlocked, therefore the Toolkit licence is required for using it
+> The provided dll has not been unlocked, and we cannot unlock it; see:
+> - https://github.com/mesh-iit/creo2urdf/issues/163
+> 
+> Therefore, the Toolkit and Object Toolkit licence is required for using it
 >
 
 Download `creo2urdf.zip` from the assets of the [latest release](https://github.com/mesh-iit/creo2urdf/releases/latest), and extract it in the folder you like.<br>
