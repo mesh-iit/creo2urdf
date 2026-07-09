@@ -92,7 +92,7 @@ private:
      * @brief Populate the exported frame information map from the Creo model handle.
      * @param modelhdl The Creo model handle.
      */
-    void populateExportedFrameInfoMap(pfcModel_ptr modelhdl);
+    void populateExportedFrameInfoMap(LinkInfo& link_info);
 
     /**
      * @brief Read assigned inertias from the loaded YAML configuration.
@@ -115,7 +115,7 @@ private:
      * @param mesh_transform The 3D transform associated to the mesh.
      * @return True if successful, false otherwise.
      */
-    bool addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform);
+    bool addMeshAndExport(const LinkInfo& link_info);
 
     /**
      * @brief Load YAML configuration from a file.

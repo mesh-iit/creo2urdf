@@ -41,8 +41,6 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
             continue;
         }
 
-        //printToMessageWindow("Processing " + string(component_handle->GetFullName()) + " Owner " + string(model_owner->GetFullName()));
-
         xintsequence_ptr seq = xintsequence::create();
         seq->append(asmItemAsFeat->GetId());
 
@@ -127,10 +125,10 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
 
         LinkInfo l_info{ urdf_link_name, component_handle, parentAsm_H_linkFrame, csysAsm_H_linkFrame, link_frame_name };
         link_info_map.insert(std::make_pair(link_name, l_info));
-        populateExportedFrameInfoMap(component_handle);
+        populateExportedFrameInfoMap(l_info);
 
         idyn_model.addLink(urdf_link_name, link);
-        if (!addMeshAndExport(component_handle, link_frame_name)) {
+        if (!addMeshAndExport(l_info)) {
             printToMessageWindow("Failed to export mesh for " + link_name, c2uLogLevel::WARN);
             if (warningsAreFatal) {
                 return false;
@@ -612,12 +610,12 @@ iDynTree::SpatialInertia Creo2Urdf::computeSpatialInertiafromCreo(pfcMassPropert
     return sp_inertia;
 }
 
-void Creo2Urdf::populateExportedFrameInfoMap(pfcModel_ptr modelhdl) {
+void Creo2Urdf::populateExportedFrameInfoMap(LinkInfo& link_info) {
 
     // The revolute joints are defined by aligning along the
     // rotational axis
-    auto link_name = string(modelhdl->GetFullName());
-    auto csys_list = modelhdl->ListItems(pfcModelItemType::pfcITEM_COORD_SYS);
+    auto link_name = link_info.name;
+    auto csys_list = link_info.modelhdl->ListItems(pfcModelItemType::pfcITEM_COORD_SYS);
 
     if (csys_list->getarraysize() == 0) {
         printToMessageWindow("There is no CSYS in the part " + link_name, c2uLogLevel::WARN);
@@ -640,14 +638,13 @@ void Creo2Urdf::populateExportedFrameInfoMap(pfcModel_ptr modelhdl) {
         
         if (exported_frame_info_map.find(csys_name) != exported_frame_info_map.end()) {
             auto& exported_frame_info = exported_frame_info_map.at(csys_name);
-            auto& link_info = link_info_map.at(link_name);
             bool ret{ false };
             iDynTree::Transform csys_H_additionalFrame {iDynTree::Transform::Identity()};
             iDynTree::Transform csys_H_linkFrame {iDynTree::Transform::Identity()};
             iDynTree::Transform linkFrame_H_additionalFrame {iDynTree::Transform::Identity()};
 
-            std::tie(ret, csys_H_additionalFrame) = getTransformFromPart(modelhdl, csys_name, scale);
-            std::tie(ret, csys_H_linkFrame) = getTransformFromPart(modelhdl, link_info.link_frame_name, scale);
+            std::tie(ret, csys_H_additionalFrame) = getTransformFromPart(link_info.modelhdl, csys_name, scale);
+            std::tie(ret, csys_H_linkFrame) = getTransformFromPart(link_info.modelhdl, link_info.link_frame_name, scale);
 
             linkFrame_H_additionalFrame = csys_H_linkFrame.inverse() * csys_H_additionalFrame;
             exported_frame_info.linkFrame_H_additionalFrame = linkFrame_H_additionalFrame;
@@ -720,12 +717,12 @@ void Creo2Urdf::readExportedFramesFromConfig() {
     }
 }
 
-bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform)
+bool Creo2Urdf::addMeshAndExport(const LinkInfo& link_info)
 {
     bool export_mesh = true;
     std::string file_extension = ".stl";
     std::string meshFormat = "stl_binary";
-    std::string link_name = component_handle->GetFullName();
+    std::string link_name = link_info.modelhdl->GetFullName();
     std::string renamed_link_name = link_name;
  
     if (config["rename"][link_name].IsDefined())
@@ -800,17 +797,17 @@ bool Creo2Urdf::addMeshAndExport(pfcModel_ptr component_handle, const std::strin
 
         try {
             if (meshFormat == "stl_binary") {
-                auto stl_binary_export_instructions = pfcSTLBinaryExportInstructions().Create(mesh_transform.c_str());
+                auto stl_binary_export_instructions = pfcSTLBinaryExportInstructions().Create(link_info.link_frame_name.c_str());
                 stl_binary_export_instructions->SetQuality(mesh_quality);
-                component_handle->Export(mesh_file_name.c_str(), pfcExportInstructions::cast(stl_binary_export_instructions));
+                link_info.modelhdl->Export(mesh_file_name.c_str(), pfcExportInstructions::cast(stl_binary_export_instructions));
             }
             else if(meshFormat =="stl_ascii") {
-                auto stl_ascii_export_instructions = pfcSTLASCIIExportInstructions().Create(mesh_transform.c_str());
+                auto stl_ascii_export_instructions = pfcSTLASCIIExportInstructions().Create(link_info.link_frame_name.c_str());
                 stl_ascii_export_instructions->SetQuality(mesh_quality);
-                component_handle->Export(mesh_file_name.c_str(), pfcExportInstructions::cast(stl_ascii_export_instructions));
+                link_info.modelhdl->Export(mesh_file_name.c_str(), pfcExportInstructions::cast(stl_ascii_export_instructions));
             }
             else if (meshFormat == "step") {
-                component_handle->ExportIntf3D(mesh_file_name.c_str(), pfcExportType::pfcEXPORT_STEP);
+                link_info.modelhdl->ExportIntf3D(mesh_file_name.c_str(), pfcExportType::pfcEXPORT_STEP);
             }
             else {
                 return false;
