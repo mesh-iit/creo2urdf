@@ -420,6 +420,21 @@ std::pair<bool, std::string> getFirstCoordinateSystemName(pfcModel_ptr modelhdl)
  */
 std::pair<bool, iDynTree::Transform> getTransformFromOwnerToLinkFrame(pfcComponentPath_ptr comp_path, pfcModel_ptr modelhdl, const std::string& link_frame_name, const array<double, 3>& scale);
 
+
+/**
+ * @brief Retrieves the position of a specified datum in the given part.
+ *
+ * @param modelhdl The part model.
+ * @param datum_name The name of the datum for which the position is requested.
+ * @param scale scaling factor for expressing the position of the datum.
+ *
+ * @return A std::pair<bool, iDynTree::Position> containing the result of the operation:
+ *         - The first element is a boolean indicating success (true) or failure (false).
+ *         - The second element is an iDynTree::Position representing the position of the specified datum.
+ *           If the operation fails, this position will be a zero vector.
+*/
+std::pair<bool, iDynTree::Position> getPointCoordFromPart(pfcModel_ptr modelhdl, const std::string& datum_name, const array<double, 3>& scale);
+
 /**
  * @brief Retrieves the transformation matrix representing the coordinate system of a specified link frame in the given part.
  *

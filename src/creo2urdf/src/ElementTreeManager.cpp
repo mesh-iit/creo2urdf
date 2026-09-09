@@ -57,13 +57,20 @@ bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, s
             pfcComponentConstraintType::pfcASM_CONSTRAINT_ALIGN,
             pfcModelItemType::pfcITEM_AXIS);
     }
-    else if (joint.type == JointType::Fixed || joint.type == JointType::Spherical)
+    else if (joint.type == JointType::Fixed)
     {
         joint.datum_name = getConstraintDatum(feat,
             pfcComponentConstraintType::pfcASM_CONSTRAINT_CSYS,
             pfcModelItemType::pfcITEM_COORD_SYS);
     }
-    else {
+    else if (joint.type == JointType::Spherical)
+    {
+        joint.datum_name = getConstraintDatum(feat,
+            pfcComponentConstraintType::pfcASM_CONSTRAINT_ALIGN,
+            pfcModelItemType::pfcITEM_POINT);
+    }
+    else
+    {
         printToMessageWindow("Joint type not supported!", c2uLogLevel::WARN);
         return false;
     }

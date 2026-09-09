@@ -382,9 +382,9 @@ void Creo2Urdf::OnCommand() {
                 idyn_model.getLinkIndex(getRenameElementFromConfig(child_link_name))
             );
             joint.setRestTransform(parentLink_H_childLink);
-            iDynTree::Transform parent_link_H_joint_center = iDynTree::Transform::Identity();
-            std::tie(ret, parent_link_H_joint_center) = getTransformFromPart(parent_model, datum_name, scale);
-            joint.setJointCenter(idyn_model.getLinkIndex(getRenameElementFromConfig(parent_link_name)), parent_link_H_joint_center.getPosition());
+            iDynTree::Position center_in_parent_link = iDynTree::Position::Zero();
+            std::tie(ret, center_in_parent_link) = getPointCoordFromPart(parent_model, datum_name, scale);
+            joint.setJointCenter(idyn_model.getLinkIndex(getRenameElementFromConfig(parent_link_name)), center_in_parent_link);
             if (idyn_model.addJoint(joint_name, &joint) == iDynTree::JOINT_INVALID_INDEX) {
                 printToMessageWindow("FAILED TO ADD JOINT " + joint_name, c2uLogLevel::WARN);
                 if (warningsAreFatal) {

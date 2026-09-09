@@ -146,6 +146,40 @@ std::pair<bool, std::string> getFirstCoordinateSystemName(pfcModel_ptr modelhdl)
     return { true,std::string(csys) };
 }
 
+std::pair<bool, iDynTree::Position> getPointCoordFromPart(pfcModel_ptr modelhdl, const std::string& datum_name, const array<double, 3>& scale) {
+    iDynTree::Position point_coord;
+    auto datum_list = modelhdl->ListItems(pfcModelItemType::pfcITEM_POINT);
+
+    if (datum_list->getarraysize() == 0) {
+        printToMessageWindow("There are no Points in the part " + string(modelhdl->GetFullName()), c2uLogLevel::WARN);
+        return { false, point_coord };
+    }
+
+    for (size_t i = 0; i < datum_list->getarraysize(); i++)
+    {
+        auto datum_elem = datum_list->get(xint(i));
+
+        auto datum = pfcPoint::cast(datum_elem);
+
+        if (string(datum->GetName()) != datum_name)
+        {
+            continue;
+        }
+
+        auto coord = datum->GetPoint();
+
+        point_coord[0] = coord->get(0) * scale[0];
+        point_coord[1] = coord->get(1) * scale[1];
+        point_coord[2] = coord->get(2) * scale[2];
+
+        return { true, point_coord };
+    }
+
+    printToMessageWindow("Unable to find the Point " + datum_name + " in " + string(modelhdl->GetFullName()), c2uLogLevel::WARN);
+    return { false, point_coord };
+
+}
+
 std::pair<bool, iDynTree::Transform> getTransformFromPart(pfcModel_ptr modelhdl, const std::string& link_frame_name, const array<double, 3>& scale) {
 
     iDynTree::Transform H_child;
