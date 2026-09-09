@@ -1,0 +1,2067 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Generate URDF models from CREO mechanisms">
+      
+      
+        <meta name="author" content="iCub-Tech">
+      
+      
+        <link rel="canonical" href="https://mesh-iit.github.io/creo2urdf/">
+      
+      
+      
+        <link rel="next" href="CHANGELOG/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/head-solid.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Creo2Urdf</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#creo2urdf" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Creo2Urdf" class="md-header__button md-logo" aria-label="Creo2Urdf" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Creo2Urdf
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mesh-iit/creo2urdf/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mesh-iit/creo2urdf
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://mesh-iit.github.io/creo2urdf/doc/doxygen/doc/html/index.html" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Documentation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Creo2Urdf" class="md-nav__button md-logo" aria-label="Creo2Urdf" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/></svg>
+
+    </a>
+    Creo2Urdf
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mesh-iit/creo2urdf/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mesh-iit/creo2urdf
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#creo-parametric-versions-supported-and-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CREO Parametric versions supported and tested
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assumptions-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assumptions &amp; limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation-from-binaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation from binaries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation-from-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation from sources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation from sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-creo2urdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build creo2urdf
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#test-your-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test your installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#yaml-parameter-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        YAML Parameter File
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="YAML Parameter File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#include-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Include Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#severity-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Severity Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#numerical-formatting-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Numerical Formatting Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naming-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#root-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Root Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#algorithm-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frame Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#link-frames-parameters-keys-of-elements-of-linkframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Link Frames Parameters (keys of elements of linkFrames)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exported-frame-parameters-keys-of-elements-of-exportedframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported Frame Parameters (keys of elements of exportedFrames)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mesh-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mesh Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mesh Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#assigned-collision-geometries-keys-of-elements-of-assignedcollisiongeometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assigned collision geometries (keys of elements of assignedCollisionGeometry)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inertia-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inertia parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Inertia parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#assigned-inertias-parameters-elements-of-assignedinertias-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assigned Inertias parameters (elements of assignedInertias parameters)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sensors-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sensors Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sensors Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#forcetorque-sensors-parameters-keys-of-elements-of-forcetorquesensors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ForceTorque Sensors Parameters (keys of elements of forceTorqueSensors)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generic-sensors-parameters-keys-of-elements-of-sensors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generic Sensors Parameters (keys of elements of sensors)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xml-blobs-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        XML Blobs options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#csv-parameter-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSV Parameter File
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CSV Parameter File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maintainers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Maintainers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://mesh-iit.github.io/creo2urdf/doc/doxygen/doc/html/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#creo-parametric-versions-supported-and-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CREO Parametric versions supported and tested
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assumptions-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assumptions &amp; limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation-from-binaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation from binaries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation-from-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation from sources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation from sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-creo2urdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build creo2urdf
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#test-your-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test your installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#yaml-parameter-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        YAML Parameter File
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="YAML Parameter File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#include-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Include Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#severity-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Severity Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#numerical-formatting-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Numerical Formatting Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naming-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#root-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Root Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#algorithm-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frame Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#link-frames-parameters-keys-of-elements-of-linkframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Link Frames Parameters (keys of elements of linkFrames)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exported-frame-parameters-keys-of-elements-of-exportedframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported Frame Parameters (keys of elements of exportedFrames)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mesh-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mesh Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mesh Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#assigned-collision-geometries-keys-of-elements-of-assignedcollisiongeometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assigned collision geometries (keys of elements of assignedCollisionGeometry)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inertia-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inertia parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Inertia parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#assigned-inertias-parameters-elements-of-assignedinertias-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assigned Inertias parameters (elements of assignedInertias parameters)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sensors-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sensors Parameters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sensors Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#forcetorque-sensors-parameters-keys-of-elements-of-forcetorquesensors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ForceTorque Sensors Parameters (keys of elements of forceTorqueSensors)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generic-sensors-parameters-keys-of-elements-of-sensors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generic Sensors Parameters (keys of elements of sensors)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xml-blobs-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        XML Blobs options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#csv-parameter-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSV Parameter File
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CSV Parameter File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maintainers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Maintainers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/mesh-iit/creo2urdf/edit/master/doc/mkdocs/docs/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/mesh-iit/creo2urdf/raw/master/doc/mkdocs/docs/index.md" title="View source of this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
+    </a>
+  
+
+
+<div><h1 id="creo2urdf">creo2urdf<a class="headerlink" href="#creo2urdf" title="Permanent link">¶</a></h1>
+<p>Generate URDF model from CREO Parametric mechanisms.</p>
+<p><strong>Since it is under development, we cannot guarantee that the user interface of <code>creo2urdf</code> will not implement breaking changes. Be aware of this if you start using the code contained in this repository</strong></p>
+<h2 id="creo-parametric-versions-supported-and-tested">CREO Parametric versions supported and tested<a class="headerlink" href="#creo-parametric-versions-supported-and-tested" title="Permanent link">¶</a></h2>
+<ul>
+<li><code>9.0.8.0</code></li>
+<li><code>11.0.3.0</code></li>
+</ul>
+<h2 id="assumptions-limitations">Assumptions &amp; limitations<a class="headerlink" href="#assumptions-limitations" title="Permanent link">¶</a></h2>
+<ul>
+<li>To export the urdf of the robot, the CREO mechanism has to follow <a href="https://github.com/mesh-iit/cad-libraries/wiki/Prepare-PTC-Creo-Mechanism-for-URDF">these guidelines</a>.</li>
+<li>The joints are assumed to be in position 0.</li>
+<li>Right now it can handle only <strong>REVOLUTE</strong>, <strong>PRISMATIC</strong>, <strong>FIXED</strong> and <strong>BALL</strong> joints.</li>
+</ul>
+<blockquote>
+<p>[!note]
+The <strong>BALL</strong> joints are not supported in the URDF, for this reason they are exported as a chain of three <strong>REVOLUTE</strong> joints, with axis orthogonal each other, intersecting in one point, and with the two middle links of the chain with mass zero.</p>
+</blockquote>
+<h2 id="installation-from-binaries">Installation from binaries<a class="headerlink" href="#installation-from-binaries" title="Permanent link">¶</a></h2>
+<blockquote>
+<p>[!NOTE]
+The provided dll has not been unlocked, and we cannot unlock it; see:
+- <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/mesh-iit/creo2urdf/issues/163" title="GitHub Issue: mesh-iit/creo2urdf #163">mesh-iit/creo2urdf#163</a></p>
+<p>Therefore, the Toolkit and Object Toolkit licence is required for using it
+</p>
+</blockquote>
+<p>Download <code>creo2urdf.zip</code> from the assets of the <a href="https://github.com/mesh-iit/creo2urdf/releases/latest">latest release</a>, and extract it in the folder you like.<br>
+This archive contains the dll of the plugin and the <code>text</code> folder for running it. <br>
+Follow the <a href="https://github.com/mesh-iit/creo2urdf/tree/master#usage"><code>Usage</code></a> section instructions for completing the installation. <br></p>
+<h2 id="installation-from-sources">Installation from sources<a class="headerlink" href="#installation-from-sources" title="Permanent link">¶</a></h2>
+<h3 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">¶</a></h3>
+<p>Right now the <code>creo2urdf</code> plugin needs its dependencies to be compiled and linked <strong>statically</strong>:</p>
+<ul>
+<li>Download <a href="https://github.com/microsoft/vcpkg">vcpkg</a>: <code>git clone https://github.com/microsoft/vcpkg</code></li>
+<li>Bootstrap vcpkg: <code>.\vcpkg\bootstrap-vcpkg.bat</code></li>
+</ul>
+<h3 id="build-creo2urdf">Build <code>creo2urdf</code><a class="headerlink" href="#build-creo2urdf" title="Permanent link">¶</a></h3>
+<ul>
+<li>Export <code>CREO_INSTALL_PATH</code> pointing to the Creo9 installation folder, e.g. <code>C:\Program Files\PTC\Creo 9.0.8.0\Common Files</code></li>
+<li>Pass <code>-DCMAKE_TOOLCHAIN_FILE=[path to vcpkg]/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md</code> to the creo2urdf compilation.</li>
+<li>Run the CMake <code>configure</code> step, then build the project:<ul>
+<li>Within Visual Studio, you can do: <strong>Project &gt; Configure creo2urdf</strong>, then <strong>Build &gt; Build all</strong></li>
+</ul>
+</li>
+</ul>
+<p>For those who use the CMake integration in Visual Studio, the <code>-DCMAKE_TOOLCHAIN_FILE</code> option should not be passed to <code>CMake command arguments</code>. Instead, the <code>vcpkg.cmake</code> file path must be passed in <code>CMake toolchain file</code>.</p>
+<blockquote>
+<p>[!note]
+<code>creo2urdf</code> uses a <a href="https://github.com/mesh-iit/creo2urdf/blob/master/vcpkg.json#L15"><code>vcpkg.json</code></a> for installing the specific version of the dependencies needed for the compilation.
+The version of vcpkg used is specified <a href="https://github.com/mesh-iit/creo2urdf/blob/3ff282240344ff2703e0130023eb8a11d50ef5f9/vcpkg.json#L15">here</a>.</p>
+</blockquote>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">¶</a></h2>
+<ul>
+<li>Put in your CREO working directory the <code>protk.dat</code> that is automatically generated by CMake in <code>${PROJECT_BINARY_DIR}</code> (e.g. <code>C:\Users\ngenesio\mesh-iit\creo2urdf\build\x64-Release</code>).
+Or create it by hand as follow:</li>
+</ul>
+<p></p><div class="highlight"><pre><span></span><code>name creo2urdf
+Startup dll
+Allow_stop True
+Delay_start False
+exec_file \path\to\creo2urdf.dll
+text_dir \path\to\creo2urdf\src\creo2urdf\text
+END
+</code></pre></div>
+- Open CREO Parametric: on the first time, you will need to accept the plugin registration
+- Load the assembly mechanism of which you want to export the urdf
+- Press the button
+ <img src="https://github.com/user-attachments/assets/d8ad3e71-baa4-40c4-9dbc-084962d425d3" width="800" align="center">
+<ul>
+<li>Select a yaml and csv configuration files with a format explained in the following sections, and the folder where both the urdf the meshes will be saved.</li>
+</ul>
+<h3 id="test-your-installation">Test your installation<a class="headerlink" href="#test-your-installation" title="Permanent link">¶</a></h3>
+<p>The folder <code>examples</code> contains a simple assembly with two links, called joints_assembled.asm.
+You can open the assembly in Creo and then test the installation by clicking on the Creo2Urdf button.
+The plugin will ask you to select the related .yaml (2bars.yaml) and .csv (2bars.csv) files, which are provided in the folder.</p>
+<p>If the export process was successful, you should see "model.urdf" and the stl of the meshes.</p>
+<h3 id="yaml-parameter-file">YAML Parameter File<a class="headerlink" href="#yaml-parameter-file" title="Permanent link">¶</a></h3>
+<p>The YAML format is used to pass parameters to the plugin to customized the conversion process.
+The parameters accepted by the plugin are documented in the following.</p>
+<h5 id="include-parameters">Include Parameters<a class="headerlink" href="#include-parameters" title="Permanent link">¶</a></h5>
+<p>The YAML can eventually include other YAML files using the <code>includes</code> parameter, if so, the included files are merged with the main file.
+All internal groups are merged if they are maps, they are overwritten only if an element is not a map, taking precedence over the main file in case of conflicts.</p>
+<blockquote>
+<p>[!NOTE]
+The <code>includes</code> parameter is not mandatory, but if it is present, it must be a list of strings, containing relative path respect the directory of the main YAML file.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>includes</code></td>
+<td style="text-align: center;">List of strings</td>
+<td style="text-align: center;">""</td>
+<td style="text-align: center;">List of paths relative to the main YAML directory</td>
+</tr>
+</tbody>
+</table>
+<h5 id="severity-parameters">Severity Parameters<a class="headerlink" href="#severity-parameters" title="Permanent link">¶</a></h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>warningsAreFatal</code></td>
+<td style="text-align: center;">Boolean</td>
+<td style="text-align: center;">true</td>
+<td style="text-align: center;">Used for throwing fatal errors in case some steps in the exportation of the urdf are failing.</td>
+</tr>
+</tbody>
+</table>
+<h5 id="numerical-formatting-parameters">Numerical Formatting Parameters<a class="headerlink" href="#numerical-formatting-parameters" title="Permanent link">¶</a></h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>urdfNumericalPrecision</code></td>
+<td style="text-align: center;">Integer</td>
+<td style="text-align: center;">Not set</td>
+<td style="text-align: center;"><strong>Optional.</strong> Number of decimal places for all numerical values in the exported URDF. Valid range: 1-15. Recommended: 8. If omitted or 0, the exporter uses the minimum number of digits required to represent exactly the floating point values in output</td>
+</tr>
+</tbody>
+</table>
+<h5 id="naming-parameters">Naming Parameters<a class="headerlink" href="#naming-parameters" title="Permanent link">¶</a></h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>robotName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">model name set in the file PhysicalModelingXMLFile</td>
+<td style="text-align: center;">Used for setting the model name, i.e. the parameter <code>&lt;robot name="..."&gt;</code> in the <code>URDF</code> model file.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>rename</code></td>
+<td style="text-align: center;">Map</td>
+<td style="text-align: center;">{} (Empty Map)</td>
+<td style="text-align: center;">Structure mapping the SimMechanics XML names to the desired URDF names.</td>
+</tr>
+</tbody>
+</table>
+<h5 id="root-parameters">Root Parameters<a class="headerlink" href="#root-parameters" title="Permanent link">¶</a></h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>root</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">First body in the file</td>
+<td style="text-align: center;">Changes the root body of the tree</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>originXYZ</code></td>
+<td style="text-align: center;">List</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Changes the position of the root body</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>originRPY</code></td>
+<td style="text-align: center;">List</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Changes the orientation of the root body</td>
+</tr>
+</tbody>
+</table>
+<h5 id="algorithm-parameters">Algorithm Parameters<a class="headerlink" href="#algorithm-parameters" title="Permanent link">¶</a></h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>epsilon</code></td>
+<td style="text-align: center;">Float</td>
+<td style="text-align: center;">4*(Machine <em>eps</em>)</td>
+<td style="text-align: center;">Set a custom value for testing whether a number is close to zero</td>
+</tr>
+</tbody>
+</table>
+<h5 id="frame-parameters">Frame Parameters<a class="headerlink" href="#frame-parameters" title="Permanent link">¶</a></h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>linkFrames</code></td>
+<td style="text-align: center;">Array</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Structure mapping the link names to the displayName of their desired frame. Unfortunatly in URDF the link frame origin placement is not free, but it is constrained to be placed on the parent joint axis, hence this option is for now reserved to the root link and to links connected to their parent by a fixed joint</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportAllUseradded</code></td>
+<td style="text-align: center;">Boolean</td>
+<td style="text-align: center;">False</td>
+<td style="text-align: center;">If true, export all frames starting w/ <code>SCSYS</code> in the output URDF as fake links i.e. fake link with zero mass connected to a link with a fixed joint.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportedFrames</code></td>
+<td style="text-align: center;">Array</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Array of <code>displayName</code> of UserAdded frames to export. This are exported as fixed URDF frames, i.e. fake link with zero mass connected to a link with a fixed joint.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportFirstBaseLinkAdditionalFrameAsFakeURDFBase</code></td>
+<td style="text-align: center;">Boolean</td>
+<td style="text-align: center;">false</td>
+<td style="text-align: center;">Controls the <code>iDynTree::ModelExporterOptions::exportFirstBaseLinkAdditionalFrameAsFakeURDFBase</code> option for the iDynTree URDF exporter. If this YAML parameter is omitted, <code>creo2urdf</code> defaults this iDynTree option to <code>false</code> (this is a change from <code>creo2urdf &lt;= v0.5.11</code> which defaulted to <code>true</code>). This change aims to reduce confusion (see <a href="https://github.com/mesh-iit/creo2urdf/issues/140">issue #140</a>, <a href="https://github.com/robotology/idyntree/issues/1201">issue #1201</a>). Set this YAML parameter to <code>true</code> to restore the behavior of <code>creo2urdf &lt;= v0.5.11</code> .</td>
+</tr>
+</tbody>
+</table>
+<h6 id="link-frames-parameters-keys-of-elements-of-linkframes">Link Frames Parameters  (keys of elements of <code>linkFrames</code>)<a class="headerlink" href="#link-frames-parameters-keys-of-elements-of-linkframes" title="Permanent link">¶</a></h6>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>linkName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;">name of the link for which we want to set the frame</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frameName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;"><code>displayName</code> of the frame that we want to use as link frame. This frame should be attached to the <code>frameReferenceLink</code> link. The default value for <code>frameReferenceLink</code> is <code>linkName</code></td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frameReferenceLink</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;"><code>frameReferenceLink</code> at which the frame is attached. If <code>frameReferenceLink</code> is empty, it will default to <code>linkName</code></td>
+</tr>
+</tbody>
+</table>
+<h6 id="exported-frame-parameters-keys-of-elements-of-exportedframes">Exported Frame Parameters (keys of elements of <code>exportedFrames</code>)<a class="headerlink" href="#exported-frame-parameters-keys-of-elements-of-exportedframes" title="Permanent link">¶</a></h6>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>frameName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;"><code>displayName</code> of the frame in which the sensor measure is expressed. The selected frame should be attached to the <code>referenceLink</code> link, but <code>referenceLink</code> can be be omitted if the frameName is unique in the model.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frameReferenceLink</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;"><code>frameReferenceLink</code> at which the frame is attached. If <code>referenceLink</code> is empty, it will be selected the first USERADDED frame with the specified <code>frameName</code></td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportedFrameName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">sensorName</td>
+<td style="text-align: center;">Name of the URDF link exported by the <code>exportedFrames</code> option</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>additionalTransformation</code></td>
+<td style="text-align: center;">List</td>
+<td style="text-align: center;">Empty</td>
+<td style="text-align: center;">Additional transformation applied to the exported frame, it is expressed as [x, y, z, r, p, y] according to the semantics and units of the <a href="http://sdformat.org/tutorials?tut=specify_pose&amp;cat=specification&amp;">SDF convention</a> for expressing poses. If the unmodified transformation of the additionalFrame is indicated as linkFrame_H_additionalFrameOld, this parameter specifies the additionalFrameOld_H_additionalFrame transform, and the final transform exported in the URDF is computed as linkFrame_H_additionalFrame = linkFrame_H_additionalFrameOld*additionalFrameOld_H_additionalFrame . If not specified it is assume to be the <code>[0, 0, 0, 0, 0, 0]</code> element and the specified frame is exported in the URDF unmodified.</td>
+</tr>
+</tbody>
+</table>
+<h5 id="mesh-parameters">Mesh Parameters<a class="headerlink" href="#mesh-parameters" title="Permanent link">¶</a></h5>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>filenameformat</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">%s</td>
+<td style="text-align: center;">Used for translating the filenames in the exported XML to the URDF filenames, using a formatting string. Example: "package://my_package//folder/%sb" - resolves to the package name and adds a "b" at the end to indicate a binary stl.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>forcelowercase</code></td>
+<td style="text-align: center;">Boolean</td>
+<td style="text-align: center;">False</td>
+<td style="text-align: center;">Used for translating the filenames. Ff True, it forces all filenames to be lower case.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>scale</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">None</td>
+<td style="text-align: center;">If this parameter is defined, the scale attribute of the mesh in the URDF will be set to its value. Example: "0.01 0.01 0.01" - if your meshes were saved using centimeters as units instead of meters.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>stringToRemoveFromMeshFileName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">None</td>
+<td style="text-align: center;">This parameter allows to specify a string that will be removed from the mesh file names. Example: "_prt"</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>assignedCollisionGeometry</code></td>
+<td style="text-align: center;">Array</td>
+<td style="text-align: center;">None</td>
+<td style="text-align: center;">Structure for redefining the collision geometry for a given link.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>assignedColors</code></td>
+<td style="text-align: center;">Map</td>
+<td style="text-align: center;">{} (Empty Map)</td>
+<td style="text-align: center;">If a link is in this map, the color found in the SimMechanics file is substituted with the one passed through this map. The color is represented by a 4 element vector of containing numbers from 0 to 1 representing the red, green, blue and alpha component.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>meshFormat</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;"><code>stl_binary</code></td>
+<td style="text-align: center;">Format of the meshes exported. Allowed values: <code>stl_binary</code>, <code>stl_ascii</code>, <code>step</code></td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportMeshes</code></td>
+<td style="text-align: center;">Boolean</td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;">If false, the meshes will not be exported.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>meshQuality</code></td>
+<td style="text-align: center;">Integer</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">Quality of the meshes exported. The value is between 1 and 10, where 1 is the lowest quality and 10 is the highest, see the ptc <a href="https://support.ptc.com/help/creo_toolkit/otk_cpp_plus/usascii/index.html#page/creo_toolkit/api/dita/t-pfcModel-CoordSysExportInstructions.html#wwID0EJNT6B">creo docs on <code>pfcCoordSysExportInstructions::SetQuality</code> method</a>. NOTE: this is valid for the stl meshes.</td>
+</tr>
+</tbody>
+</table>
+<h6 id="assigned-collision-geometries-keys-of-elements-of-assignedcollisiongeometry">Assigned collision geometries (keys of elements of <code>assignedCollisionGeometry</code>)<a class="headerlink" href="#assigned-collision-geometries-keys-of-elements-of-assignedcollisiongeometry" title="Permanent link">¶</a></h6>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>linkName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;">Name of the link for which the collision geometry is specified.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>geometricShape</code></td>
+<td style="text-align: center;">Dictionary</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;">This dictionary contains the parameters used to define the type and the position of the geometric shape. In particular we have: <ul><li>shape: geometric shape type. Supported "box", "cylinder", "sphere". </li><li>type dependent geometric shape parameters. Refer to <a href="http://sdformat.org/spec?elem=geometry">SDF Geometry</a>. </li><li>origin: String defining the pose of the geometric shape with respect to the <code>linkFrame</code>. </li></ul></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code>assignedCollisionGeometry:
+  - linkName: r_foot
+    geometricShape:
+      shape: cylinder
+      radius: 0.16
+      length: 0.06
+      origin: "0.0 0.03 0.0 1.57079632679 0.0 0.0"
+  - linkName: l_foot
+    geometricShape:
+      shape: box
+      size: 0.4 0.2 0.1
+      origin: "0.0 0.0 0.0 0.0 0.0 0.0"
+</code></pre></div>
+<h5 id="inertia-parameters">Inertia parameters<a class="headerlink" href="#inertia-parameters" title="Permanent link">¶</a></h5>
+<p>Parameters related to the inertia parameters of a link</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>assignedMasses</code></td>
+<td style="text-align: center;">Map</td>
+<td style="text-align: center;">{} (Empty Map)</td>
+<td style="text-align: center;">If a link is in this map, the mass found in the SimMechanics file is substituted with the one passed through this map. Furthermore, the inertia matrix present in the SimMechanics file is scaled accounting for the new mass (i.e. multiplied by new_mass/old_mass). The mass is expressed in Kg.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>assignedInertias</code></td>
+<td style="text-align: center;">Array</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Structure for redefining the inertia tensor (at the COM) for a given link.</td>
+</tr>
+</tbody>
+</table>
+<h6 id="assigned-inertias-parameters-elements-of-assignedinertias-parameters">Assigned Inertias parameters (elements of <code>assignedInertias</code> parameters)<a class="headerlink" href="#assigned-inertias-parameters-elements-of-assignedinertias-parameters" title="Permanent link">¶</a></h6>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>linkName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;">name of the link for which we want to set the frame</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>xx</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">If defined, change the Ixx value of the inertia matrix of the link. Unit of measure: Kg*m^2 .</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>yy</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">If defined, change the Iyy value of the inertia matrix of the link. Unit of measure: Kg*m^2 .</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>zz</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">If defined, change the Izz value of the inertia matrix of the link. Unit of measure: Kg*m^2 .</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code>assignedMasses:
+  link1: 1
+  link2: 3
+
+assignedInertias:
+  - linkName: link1
+    xx: 0.0001
+  - linkName: link1
+    xx: 0.0003
+    yy: 0.0003
+    zz: 0.0003
+</code></pre></div>
+<h5 id="sensors-parameters">Sensors Parameters<a class="headerlink" href="#sensors-parameters" title="Permanent link">¶</a></h5>
+<p>Sensor information can be expressed using arrays of sensor options.
+Note that given that the URDF still does not support an official format for expressing sensor information,
+this script will output two different elements for each sensor:
+* a <code>&lt;gazebo&gt;</code> element, necessary to simulate the sensor in Gazebo when loading the URDF, as documented in <a href="http://gazebosim.org/tutorials?tut=ros_gzplugins">http://gazebosim.org/tutorials?tut=ros_gzplugins</a> .
+* a more URDF-like <code>&lt;sensor&gt;</code> element, in particular the variant supported by the iDynTree library, as documented in <a href="https://github.com/robotology/idyntree/blob/master/doc/model_loading.md">https://github.com/robotology/idyntree/blob/master/doc/model_loading.md</a> .</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>forceTorqueSensors</code></td>
+<td style="text-align: center;">Array</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Array of option for exporting 6-Axis ForceTorque sensors</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>sensors</code></td>
+<td style="text-align: center;">Array</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Array of option for exporting generic sensors (e.g. camera, depth, imu, ray..)</td>
+</tr>
+</tbody>
+</table>
+<h6 id="forcetorque-sensors-parameters-keys-of-elements-of-forcetorquesensors">ForceTorque Sensors Parameters (keys of elements of <code>forceTorqueSensors</code>)<a class="headerlink" href="#forcetorque-sensors-parameters-keys-of-elements-of-forcetorquesensors" title="Permanent link">¶</a></h6>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>jointName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Name of the Joint for which this sensor measure the ForceTorque.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>directionChildToParent</code></td>
+<td style="text-align: center;">Bool</td>
+<td style="text-align: center;">True</td>
+<td style="text-align: center;">True if the sensor measures the force excerted by the child on the parent, false otherwise</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>sensorName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">jointName</td>
+<td style="text-align: center;">Name of the sensor, to be used in the output URDF file</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportFrameInURDF</code></td>
+<td style="text-align: center;">Bool</td>
+<td style="text-align: center;">False</td>
+<td style="text-align: center;">If true, export a fake URDF link whose frame is coincident with the sensor frame (as if the sensor frame was added to the <code>exportedFrames</code> array).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportedFrameName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;"><code>sensorName</code> if defined <code>jointName</code> otherwise</td>
+<td style="text-align: center;">Name of the URDF link exported by the <code>exportFrameInURDF</code> option</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frameName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Name of the frame in which the sensor measure is expressed. Mandatory if <code>exportFrameInURDF</code> is set to yes.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>linkName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Name of the parent link at which the sensor is rigidly attached. Mandatory if <code>exportFrameInURDF</code> is set to yes.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frameReferenceLink</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;"><code>linkName</code></td>
+<td style="text-align: center;">link at which the sensor frame is attached (to make sense, this link should be rigidly attached to the <code>linkName</code>. By default <code>referenceLink</code> is assumed to be <code>linkName</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frame</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">The value of this element may be one of: child, parent, or sensor. It is the frame in which the forces and torques should be expressed. The values parent and child refer to the parent or child links of the joint. The value sensor means the measurement is rotated by the rotation component of the <code>&lt;pose&gt;</code> of this sensor. The translation component of the pose has no effect on the measurement.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>sensorBlobs</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Array of strings (possibly on multiple lines) represeting complex XML blobs that will be included as child of the <code>&lt;sensor&gt;</code> element of type "force_torque"</td>
+</tr>
+</tbody>
+</table>
+<p>Note that for now the FT sensors sensor frame is required to be coincident with child link frame, due
+to URDF limitations.</p>
+<h6 id="generic-sensors-parameters-keys-of-elements-of-sensors">Generic Sensors Parameters (keys of elements of <code>sensors</code>)<a class="headerlink" href="#generic-sensors-parameters-keys-of-elements-of-sensors" title="Permanent link">¶</a></h6>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>linkName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;">Name of the Link at which the sensor is rigidly attached.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frameName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;"><code>displayName</code> of the frame in which the sensor measure is expressed. The selected frame must be attached to the <code>referenceLink</code> link. If empty the frame used for the sensor is coincident with the link frame.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>frameReferenceLink</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">linkName</td>
+<td style="text-align: center;">link at which the sensor frame is attached (to make sense, this link should be rigidly attached to the <code>linkName</code>. By default <code>referenceLink</code> is assumed to be <code>linkName</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>sensorName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">LinkName_FrameName</td>
+<td style="text-align: center;">Name of the sensor, to be used in the output URDF file</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportFrameInURDF</code></td>
+<td style="text-align: center;">Bool</td>
+<td style="text-align: center;">False</td>
+<td style="text-align: center;">If true, export a fake URDF link whose frame is coincident with the sensor frame (as if the sensor frame was added to the <code>exportedFrames</code> array)</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>exportedFrameName</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">sensorName</td>
+<td style="text-align: center;">Name of the URDF link exported by the <code>exportFrameInURDF</code> option</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>sensorType</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;">Type of sensor. Supported: "accelerometer", "gyroscope", "camera", "depth", "gpu_lidar", "rgbd_camera"</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>updateRate</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">Mandatory</td>
+<td style="text-align: center;">Number representing the update rate of the sensor. Expressed in [Hz].</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>sensorBlobs</code></td>
+<td style="text-align: center;">String</td>
+<td style="text-align: center;">empty</td>
+<td style="text-align: center;">Array of strings (possibly on multiple lines) represeting complex XML blobs that will be included as child of the <code>&lt;sensor&gt;</code> element</td>
+</tr>
+</tbody>
+</table>
+<h5 id="xml-blobs-options">XML Blobs options<a class="headerlink" href="#xml-blobs-options" title="Permanent link">¶</a></h5>
+<p>If you use extensions of URDF, we frequently want to add non-standard tags as child of the <code>&lt;robot&gt;</code> root element.
+Using the XMLBlobs option, you can pass an array of strings (event on multiple lines) represeting complex XML blobs that you
+want to include in the converted URDF file. This will be included without modifications in the converted URDF file.
+Note that every blob must have only one root element.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default Value</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>XMLBlobs</code></td>
+<td style="text-align: center;">Array of String</td>
+<td style="text-align: center;">[] (empty array)</td>
+<td style="text-align: center;">List of XML Blobs to include in the URDF file as children of <code>&lt;robot&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="csv-parameter-file">CSV  Parameter File<a class="headerlink" href="#csv-parameter-file" title="Permanent link">¶</a></h4>
+<p>By using the a .csv file it is possible to load some joint-related information from a csv file.
+The rationale for using CSV over YAML for some information related to the model (for example joint limits) is to use a format that it is easier to modify  using common spreadsheet tools like Excel/LibreOffice Calc, that can be easily used also by people without a background in computer science.</p>
+<h5 id="format">Format<a class="headerlink" href="#format" title="Permanent link">¶</a></h5>
+<p>The CSV file is loaded and parsed using the <a href="https://github.com/d99kris/rapidcsv">d99kris/rapidcsv</a> library. Please refer to its documentation for supported dialects of the format.</p>
+<p>The CSV file is formed by a header line followed by several content lines,
+as in this example:
+</p><div class="highlight"><pre><span></span><code>joint_name,lower_limit,upper_limit
+torso_yaw,-20.0,20.0
+torso_roll,-20.0,20.0
+</code></pre></div>
+<p>The order of the elements in header line is arbitrary, but the supported attributes
+are listed in the following:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Attribute name</th>
+<th style="text-align: center;">Required</th>
+<th style="text-align: center;">Unit of Measure</th>
+<th style="text-align: center;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">joint_name</td>
+<td style="text-align: center;"><strong>Yes</strong></td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">Name of the joint to which the content line is referring</td>
+</tr>
+<tr>
+<td style="text-align: center;">lower_limit</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Degrees</td>
+<td style="text-align: center;"><code>lower</code> attribute of the <code>limit</code> child element of the URDF <code>joint</code>. <strong>Please note that we specify this limit here in Degrees, but in the urdf it is expressed in Radians, the plugin will take care of  internally converting this parameter.</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">upper_limit</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Degrees</td>
+<td style="text-align: center;"><code>upper</code> attribute of the <code>limit</code> child element of the URDF <code>joint</code>. <strong>Please note that we specify this limit here in Degrees, but in the urdf it is expressed in Radians, the plugin will take care of  internally converting this parameter.</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;">velocity_limit</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Radians/second</td>
+<td style="text-align: center;"><code>velocity</code> attribute of the <code>limit</code> child element of the URDF <code>joint</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;">effort_limit</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Newton meters</td>
+<td style="text-align: center;"><code>effort</code> attribute of the <code>limit</code> child element of the URDF <code>joint</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;">damping</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Newton meter seconds / radians</td>
+<td style="text-align: center;"><code>damping</code> of the <code>dynamics</code> child element of the URDF <code>joint</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;">friction</td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Newton meters</td>
+<td style="text-align: center;"><code>friction</code> of the <code>dynamics</code> child element of the URDF <code>joint</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="maintainers">Maintainers<a class="headerlink" href="#maintainers" title="Permanent link">¶</a></h3>
+<p>This repository is maintained by:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"></th>
+<th style="text-align: center;"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><a href="https://github.com/Nicogene"><img src="https://github.com/Nicogene.png" width="40"></a></td>
+<td style="text-align: center;"><a href="https://github.com/Nicogene">@Nicogene</a></td>
+</tr>
+<tr>
+<td style="text-align: center;"><a href="https://github.com/mfussi66"><img src="https://github.com/mfussi66.png" width="40"></a></td>
+<td style="text-align: center;"><a href="https://github.com/mfussi66">@mfussi66</a></td>
+</tr>
+</tbody>
+</table></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      BSD 3-Clause License
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["content.action.edit", "content.action.view", "content.code.annotate", "content.tooltips", "tabs", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "navigation.sections", "navigation.top", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
