@@ -330,11 +330,11 @@ void Creo2Urdf::OnCommand() {
 
             auto urdf_parent_link_name = getRenameElementFromConfig(parent_link_name);
 
-            iDynTree::Axis idyn_axis{ direction, parentLink_H_childLink.getPosition() };
+            iDynTree::Axis idyn_axis{ direction, axis_mid_point_pos_in_parent };
 
             // Check if the axis is aligned with the link frame
-            if (parent_link_frame == "CSYS" && idyn_axis.getDistanceBetweenAxisAndPoint(axis_mid_point_pos_in_parent) > 1e-7 ) {
-                idyn_axis.setOrigin(axis_mid_point_pos_in_parent);
+            if (parent_link_frame == "CSYS" && idyn_axis.getDistanceBetweenAxisAndPoint(parentLink_H_childLink.getPosition()) > 1e-7 ) {
+                idyn_axis.setOrigin(parentLink_H_childLink.getPosition());
                 m_need_to_move_link_frames_to_be_compatible_with_URDF = true;
             }
 
