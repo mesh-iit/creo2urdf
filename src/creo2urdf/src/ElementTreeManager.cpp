@@ -14,17 +14,9 @@
 ElementTreeManager::ElementTreeManager()
 {}
 
-ElementTreeManager::ElementTreeManager(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map)
-{
-    if (!populateJointInfoFromElementTree(feat, joint_info_map))
-    {
-        printToMessageWindow("Feature does not support element trees!", c2uLogLevel::WARN);
-    }
-}
-
 ElementTreeManager::~ElementTreeManager() {}
 
-bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map)
+bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map, const ComponentId& ownerId, const std::map<ComponentId, pfcModel_ptr>& contexts)
 {
     wfeat = wfcWFeature::cast(feat);
 
@@ -42,13 +34,17 @@ bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, s
     JointInfo joint;
 
 
-    if (!retrieveSolidReferences()) {
+    if (!retrieveSolidReferences(ownerId, contexts)) {
         return false;
     }
-    joint.child_link_name = getChildName();
-    joint.parent_link_name = getParentName();
-    std::string joint_name = joint.parent_link_name + "--" + joint.child_link_name;
-    joint.type = proAsmCompSetType_to_JointType.at(static_cast<ProAsmcompSetType>(getConstraintType()));
+    joint.child_link_id = child_id;
+    joint.parent_link_id = parent_id;
+    auto featureId = ownerId;
+    featureId.push_back(feat->GetId());
+    std::string joint_name = componentIdString(featureId);
+    const auto type = proAsmCompSetType_to_JointType.find(static_cast<ProAsmcompSetType>(getConstraintType()));
+    if (type == proAsmCompSetType_to_JointType.end()) return false;
+    joint.type = type->second;
 
     if (joint.type == JointType::Revolute || joint.type == JointType::Linear)
     {
@@ -75,7 +71,8 @@ bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, s
         return false;
     }
 
-    joint_info_map.insert({ joint_name, joint });
+    if (!joint_info_map.emplace(joint_name, joint).second)
+        throw std::runtime_error("Duplicate joint occurrence: " + joint_name);
 
     return true;
 }
@@ -90,6 +87,11 @@ int ElementTreeManager::getConstraintType()
     wfcElemPathItems_ptr elemItems = wfcElemPathItems::create();
     wfcElemPathItem_ptr Item = wfcElemPathItem::Create(wfcELEM_PATH_ITEM_TYPE_ID, wfcPRO_E_COMPONENT_SETS);
     elemItems->append(Item);
+    auto sets = tree->GetElement(wfcElementPath::Create(elemItems));
+    if (!sets) return -1;
+    auto children = sets->GetChildren();
+    if (children && children->getarraysize() > 1)
+        throw std::runtime_error("Multiple constraint sets per component are not supported");
     Item = wfcElemPathItem::Create(wfcELEM_PATH_ITEM_TYPE_ID, wfcPRO_E_COMPONENT_SET);
     elemItems->append(Item);
     Item = wfcElemPathItem::Create(wfcELEM_PATH_ITEM_TYPE_ID, wfcPRO_E_COMPONENT_SET_TYPE);
@@ -112,11 +114,13 @@ string ElementTreeManager::getConstraintDatum(pfcFeature_ptr feat, pfcComponentC
     auto compfeat = pfcComponentFeat::cast(feat);
     auto constr = compfeat->GetConstraints();
 
+    if (!constr) return "";
     for (int i = 0; i < constr->getarraysize(); i++)
     {
         auto c = constr->get(i);
+        if (!c) continue;
 
-        if (c->GetType() == constraint_type &&
+        if (c->GetType() == constraint_type && c->GetAssemblyReference() && c->GetAssemblyReference()->GetSelItem() &&
             c->GetAssemblyReference()->GetSelItem()->GetType() == datum_type)
         {
             auto s = string(c->GetAssemblyReference()->GetSelItem()->GetName());
@@ -127,82 +131,63 @@ string ElementTreeManager::getConstraintDatum(pfcFeature_ptr feat, pfcComponentC
     return "";
 }
 
-std::string ElementTreeManager::getParentName()
+bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId,
+    const std::map<ComponentId, pfcModel_ptr>& contexts)
 {
-    if (!tree || !parent_solid)
-    {
-        printToMessageWindow("Tree or parent solid is null!", c2uLogLevel::WARN);
-        return "";
-    }
-    try{
-        return  std::string(parent_solid->GetFullName());
-    }
-    xcatchbegin
-    xcatchcip(defaultEx)
-    {
-        return "";
-    }
-    xcatchend
-}
-
-std::string ElementTreeManager::getChildName()
-{
-    if (!tree || !child_solid)
-    {
-        printToMessageWindow("Tree or child solid is null!", c2uLogLevel::WARN);
-        return "";
-    }
-    try {
-
-        return std::string(child_solid->GetFullName());
-    }
-    xcatchbegin
-    xcatchcip(defaultEx)
-    {
-        return "";
-    }
-    xcatchend
-}
-
-bool ElementTreeManager::retrieveSolidReferences()
-{
-    auto parents = wfeat->GetExternalParents(wfcExternalReferenceType::wfcALL_REF_TYPES);
-
-    if (parents == NULL) {
-
-        return false;
-    }
-
-    for (int l = 0; l < parents->getarraysize(); l++)
-    {
-        auto extrefs = parents->get(l)->GetExtRefs();
-
-        if (extrefs == NULL) {
-            return false;
+    // A reference path is relative to its own root. Resolve that root only
+    // along this feature's occurrence ancestry, never by a global model name.
+    auto componentId = ownerId;
+    componentId.push_back(wfeat->GetId());
+    auto normalize = [&](pfcSelection_ptr selection, const ComponentId& fallback, ComponentId& result) {
+        if (!selection || !selection->GetSelItem()) return false;
+        auto path = selection->GetPath();
+        if (!path || !path->GetRoot()) {
+            if (path && path->GetComponentIds() && path->GetComponentIds()->getarraysize() != 0) return false;
+            const auto context = contexts.find(fallback);
+            if (context == contexts.end() || context->second != selection->GetSelItem()->GetDBParent()) return false;
+            result = fallback;
+            return true;
         }
-
-        // each element in this array is given by a constraint and
-        // the number of parts that compose it
-        // e.g. 2 parts x 3 constraints = size(extrefs) = 6
-        // We assume there are only two parts and they are named differently
-        if (extrefs->getarraysize() == 0)
-            return false;
-
-        for (int m = 0; m < extrefs->getarraysize(); m++) {
-            auto extref = extrefs->get(m)->GetAsmcomponents()->GetPathToRef()->GetLeaf();
-            // While defining a constraint the first part is the parent link and the second part is the child link
-            if (extref && !parent_solid) {
-                parent_solid = extref;
+        auto prefix = componentId;
+        bool found = false;
+        for (;;) {
+            const auto context = contexts.find(prefix);
+            if (context != contexts.end() && context->second == path->GetRoot()) {
+                if (found) return false; // Recursive occurrence context is ambiguous.
+                result = prefix;
+                found = true;
             }
-            else if (extref && !child_solid && parent_solid) {
-                child_solid = extref;
-            }
-            else {
-                break;
-            }
+            if (prefix.empty()) break;
+            prefix.pop_back();
         }
+        if (!found) return false;
+        auto ids = path->GetComponentIds();
+        if (!ids) return false;
+        for (int i = 0; i < ids->getarraysize(); ++i) result.push_back(ids->get(i));
+        const auto leaf = contexts.find(result);
+        return leaf != contexts.end() && leaf->second == selection->GetSelItem()->GetDBParent();
+    };
+
+    auto constraints = pfcComponentFeat::cast(wfeat)->GetConstraints();
+    if (!constraints) return false;
+    bool found = false;
+    for (int i = 0; i < constraints->getarraysize(); ++i) {
+        auto constraint = constraints->get(i);
+        if (!constraint) continue;
+        auto parent = constraint->GetAssemblyReference();
+        auto child = constraint->GetComponentReference();
+        if (!parent || !child) continue;
+        ComponentId p, c;
+        if (!normalize(parent, ownerId, p) || !normalize(child, componentId, c))
+            throw std::runtime_error("Cannot resolve joint references at component " + componentIdString(componentId));
+        if (p == c) throw std::runtime_error("Joint references the same occurrence twice: " + componentIdString(p));
+        if (found && (p != parent_id || c != child_id))
+            throw std::runtime_error("Multiple link pairs/constraint sets are unsupported at component " + componentIdString(componentId));
+        parent_id = p;
+        child_id = c;
+        found = true;
     }
-    return true;
+    return found;
 }
 
 std::string ElementTreeManager::retrievePartName()
