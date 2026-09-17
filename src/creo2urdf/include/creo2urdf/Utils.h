@@ -16,6 +16,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <creo2urdf/ComponentIdentity.h>
 #include <cmath>
 #include <string>
 #include <array>
@@ -179,6 +180,7 @@ struct SensorInfo {
     SensorType type{ SensorType::None };        ///< Type of the sensor.
     double updateRate{ 100 };                   ///< Update rate of the sensor.
     std::vector<std::string> xmlBlobs;          ///< Additional XML blobs that can be appended to the XML tree.
+    std::string frameReferenceLink;
 };
 
 /**
@@ -195,12 +197,15 @@ struct FTSensorInfo {
     iDynTree::Transform child_link_H_sensor{iDynTree::Transform::Identity()}; ///< 3D transform from child link to sensor.
     bool exportFrameInURDF{false}; ///< Flag indicating whether to export the frame in URDF.
     std::vector<std::string> xmlBlobs; ///< Vector of XML blobs that can be appended to the XML tree.
+    std::string frameReferenceLink;
 };
 
 /**
  * @brief Information about an exported frame.
  */
 struct ExportedFrameInfo {
+    std::string cad_frame_name;
+    bool resolved{false};
     std::string frameReferenceLink{""}; ///< Link that the frame belongs to.
     std::string exportedFrameName{""}; ///< Name of the exported frame.
     iDynTree::Transform linkFrame_H_additionalFrame{iDynTree::Transform::Identity()}; ///< 3D transform from link frame to additional frame.
@@ -234,8 +239,8 @@ enum class JointType {
  */
 struct JointInfo {
     std::string datum_name{""}; ///< Name of the joint's associated datum (axis for revolute, csys for fixed).
-    std::string parent_link_name{""}; ///< Name of the parent link connected to the joint.
-    std::string child_link_name{""}; ///< Name of the child link connected to the joint.
+    ComponentId parent_link_id; ///< Occurrence of the parent link connected to the joint.
+    ComponentId child_link_id; ///< Occurrence of the child link connected to the joint.
     JointType type{JointType::None}; ///< Type of the joint (default is none).
 
     /**
@@ -259,6 +264,8 @@ struct JointInfo {
  * @brief Information about a link, including its name, model handle, transformation, and frame name.
  */
 struct LinkInfo {
+    ComponentId id;
+    std::string cad_model_name;
     std::string name{""}; ///< Name of the link.
     pfcModel_ptr modelhdl{nullptr}; ///< Pointer to the Creo model associated with the link.
     iDynTree::Transform rootAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the root to the link's reference frame.

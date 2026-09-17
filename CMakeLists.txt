@@ -90,6 +90,10 @@ add_subdirectory(src)
 
 option(BUILD_EXAMPLES "Build the examples" ON)
 option(BUILD_TESTING "Create tests using CMake" OFF)
+if(BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
 
 ##############################
 ########### Test #############

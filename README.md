@@ -112,6 +112,70 @@ All internal groups are merged if they are maps, they are overwritten only if an
 | `rename`        | Map  | {} (Empty Map) | Structure mapping the SimMechanics XML names to the desired URDF names.  |
 
 
+##### Repeated component occurrences
+
+Multiple occurrences of the same Creo part are supported. Internally, each link is identified by the complete sequence of component feature IDs from the root assembly. For example, `[40, 12]` and `[75, 12]` identify distinct occurrences even when both refer to the same part inside a repeated subassembly. The path is relative to the assembly being exported; it is not a global UUID and must be checked after restructuring or replacing components.
+
+The exporter writes `component-inventory.yaml` in the output directory, listing each part's `path`, CAD `model`, and resolved URDF `name`. The inventory is also written without resolved names if name resolution fails. Use these paths to assign readable names:
+
+```yaml
+componentNames:
+  - path: [40]
+    name: base_link
+  - path: [75]
+    name: moving_link
+
+root: base_link
+
+linkFrames:
+  - linkName: base_link
+    frameName: CSYS
+  - linkName: moving_link
+    frameName: CSYS
+
+rename:
+  base_link--moving_link: hinge
+```
+
+The numbers above are examples; copy the actual IDs from your inventory. Use the resolved URDF names in `root`, `linkFrames`, mass/inertia/color/collision assignments, sensors, and `frameReferenceLink`. For a moving joint named `hinge`, the CSV must contain a `hinge` row.
+
+Naming rules:
+
+- `componentNames` aliases take precedence for the specified occurrence.
+- Unique CAD names keep the existing `rename` behavior and default names.
+- Repeated parts without aliases use `<CAD-name>__<path>`, such as `LINK__40_12`.
+- A legacy `rename` entry for a repeated part requires explicit aliases for all its occurrences; it cannot select an occurrence by itself.
+- Joints between unique CAD models retain their legacy `<parent-CAD-name>--<child-CAD-name>` naming. When either model is repeated, joints use `<parent-URDF-name>--<child-URDF-name>`, optionally renamed as shown above.
+- Unknown paths, duplicate aliases, ambiguous joint renames, and output name collisions abort export with a diagnostic.
+
+Repeated coordinate-system names can be exported independently:
+
+```yaml
+exportedFrames:
+  - frameName: SCSYS_SENSOR
+    frameReferenceLink: base_link
+    exportedFrameName: base_sensor_frame
+  - frameName: SCSYS_SENSOR
+    frameReferenceLink: moving_link
+    exportedFrameName: moving_sensor_frame
+```
+
+Omitting `frameReferenceLink` is allowed only when the CAD frame exists on exactly one occurrence. With `exportAllUseradded`, repeated frame names receive the occurrence-path suffix. Sensors resolve their frame on `frameReferenceLink` (defaulting to their `linkName`); they can also reference an exported frame name. Force/torque sensors resolve their configured `jointName`, rather than searching for a joint by datum name alone. Reference links used for sensor frames must be rigidly attached to the sensor's target link.
+
+Mesh files for repeated parts receive an occurrence-path suffix, allowing different link frames and properties per occurrence. Unique parts retain their existing mesh filenames. When `exportMeshes` is disabled, provide files using these same names.
+
+The exporter still supports one link pair/constraint set per component feature. Conflicting constraint references are rejected instead of choosing one pair implicitly. Geometry references to assembly-level datums do not create additional URDF links.
+
+Tests for identity and naming can run without Creo or its SDK:
+
+```sh
+cmake -S tests -B build/identity-tests
+cmake --build build/identity-tests
+ctest --test-dir build/identity-tests --output-on-failure
+```
+
+For runtime validation in Creo, export an existing example first, then an assembly containing two occurrences of the same part joined by a pin joint. Check that it produces two links, the intended parent/child joint, distinct mesh filenames, and distinct frame/sensor poses. Repeat with a duplicated subassembly to exercise full paths. The compiler and naming tests do not validate Creo's runtime constraint references.
+
 ##### Root Parameters
 | Attribute name   | Type   | Default Value | Description  |
 |:----------------:|:------:|:------------:|:-------------:|
