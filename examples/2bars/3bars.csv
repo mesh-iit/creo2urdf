@@ -1,0 +1,3 @@
+joint_name,lower_limit,upper_limit,damping,friction,velocity_limit,effort_limit
+bar_1_bar_longer_revolute_joint,0,90,0.1,0.1,1000,1000
+bar_longer_bar_2_revolute_joint,0,90,0.1,0.1,1000,1000
