@@ -148,7 +148,13 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
 }
 
 void Creo2Urdf::OnCommand() {
-    try { runExport(); }
+    // Creo retains the command listener across clicks. Keep dialog selections,
+    // model handles and configuration defaults local to this invocation, even
+    // when runExport returns early or throws. Explicit batch inputs are copied.
+    try {
+        Creo2Urdf invocation(m_yaml_path, m_csv_path, m_output_path, m_root_asm_model_ptr);
+        invocation.runExport();
+    }
     catch (const std::exception& error) {
         printToMessageWindow(std::string("Export aborted: ") + error.what(), c2uLogLevel::WARN);
     }
@@ -708,7 +714,7 @@ bool Creo2Urdf::populateExportedFrameInfoMap(const LinkInfo& link) {
             ExportedFrameInfo frame;
             frame.cad_frame_name = name;
             frame.frameReferenceLink = link.name;
-            frame.exportedFrameName = count > 1 ? name + "__" + componentIdString(link.id) : name;
+            frame.exportedFrameName = count > 1 ? name + "_" + componentIdString(link.id) : name;
             if (idyn_model.getLinkIndex(frame.exportedFrameName) != iDynTree::LINK_INVALID_INDEX ||
                 !exported_frame_info_map.emplace(frame.exportedFrameName, frame).second)
                 throw std::runtime_error("Duplicate exported frame: " + frame.exportedFrameName);
@@ -869,7 +875,7 @@ bool Creo2Urdf::addMeshAndExport(const LinkInfo& link)
     }
 
     if (model_counts.at(link.cad_model_name) > 1)
-        link_name += "__" + componentIdString(link.id);
+        link_name += "_" + componentIdString(link.id);
     if (file_format.find("%s") == std::string::npos)
         throw std::runtime_error("filenameformat must contain %s");
     // We assume there is only one of occurrence to replace
