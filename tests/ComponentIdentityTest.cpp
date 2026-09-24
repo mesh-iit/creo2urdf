@@ -40,6 +40,21 @@ int main() {
               "Repeated subassemblies lost their ancestor identity");
         check(componentIdString({1, 23}) != componentIdString({12, 3}), "Path serialization collides");
 
+        check(cadJointName({40}, {75}, resolveComponentNames(unique, {}, {})) == "BASE--ARM",
+              "Unique CAD joint naming changed");
+        const auto cadNames = resolveComponentNames(repeated, {}, {});
+        check(cadJointName({40}, {75}, cadNames) == "LINK__40--LINK__75",
+              "Repeated CAD joint naming lost occurrence suffixes");
+        const auto renamedLinks = resolveComponentNames(repeated, {{{40}, "root"}, {{75}, "tip"}}, {});
+        check(renamedLinks.at({40}) == "root" && cadJointName({40}, {75}, cadNames) == "LINK__40--LINK__75",
+              "Link aliases changed the CAD joint key");
+        check(cadJointName({40, 12}, {75, 12}, resolveComponentNames(nested, {}, {})) == "LINK__40_12--LINK__75_12",
+              "Joint naming lost the full assembly path");
+        auto mixed = repeated;
+        mixed.emplace(ComponentId{90}, "BASE");
+        check(cadJointName({90}, {75}, resolveComponentNames(mixed, {}, {})) == "BASE--LINK__75",
+              "Only repeated endpoints should have a suffix");
+
         rejects([&] { resolveComponentNames(repeated, {}, {{"LINK", "link"}}); }, "Ambiguous legacy rename accepted");
         rejects([&] { resolveComponentNames(repeated, {{{40}, "same"}, {{75}, "same"}}, {}); }, "Duplicate alias accepted");
         rejects([&] { resolveComponentNames(unique, {{{99}, "missing"}}, {}); }, "Unknown path accepted");

@@ -116,7 +116,7 @@ All internal groups are merged if they are maps, they are overwritten only if an
 
 Multiple occurrences of the same Creo part are supported. Internally, each link is identified by the complete sequence of component feature IDs from the root assembly. For example, `[40, 12]` and `[75, 12]` identify distinct occurrences even when both refer to the same part inside a repeated subassembly. The path is relative to the assembly being exported; it is not a global UUID and must be checked after restructuring or replacing components.
 
-The exporter writes `component-inventory.yaml` in the output directory, listing each part's `path`, CAD `model`, and resolved URDF `name`. The inventory is also written without resolved names if name resolution fails. Use these paths to assign readable names:
+The exporter writes `component-inventory.yaml` in the output directory, listing each part's `path`, CAD `model`, disambiguated `cadName`, and resolved URDF `name`. Use `cadName` to compose joint keys in `rename`. The inventory is also written without resolved names if name resolution fails. Use these paths to assign readable names:
 
 ```yaml
 componentNames:
@@ -134,10 +134,10 @@ linkFrames:
     frameName: CSYS
 
 rename:
-  base_link--moving_link: hinge
+  LINK__40--LINK__75: hinge
 ```
 
-The numbers above are examples; copy the actual IDs from your inventory. Use the resolved URDF names in `root`, `linkFrames`, mass/inertia/color/collision assignments, sensors, and `frameReferenceLink`. For a moving joint named `hinge`, the CSV must contain a `hinge` row.
+The example assumes two occurrences of the CAD model `LINK`. The numbers above are examples; copy the actual IDs and `cadName` values from your inventory. Use the resolved URDF names in `root`, `linkFrames`, mass/inertia/color/collision assignments, sensors, and `frameReferenceLink`. For a moving joint named `hinge`, the CSV must contain a `hinge` row.
 
 Naming rules:
 
@@ -145,7 +145,7 @@ Naming rules:
 - Unique CAD names keep the existing `rename` behavior and default names.
 - Repeated parts without aliases use `<CAD-name>__<path>`, such as `LINK__40_12`.
 - A legacy `rename` entry for a repeated part requires explicit aliases for all its occurrences; it cannot select an occurrence by itself.
-- Joints between unique CAD models retain their legacy `<parent-CAD-name>--<child-CAD-name>` naming. When either model is repeated, joints use `<parent-URDF-name>--<child-URDF-name>`, optionally renamed as shown above.
+- Joint keys always use `<parent-cadName>--<child-cadName>`, independently of `componentNames` and link renames. Each `cadName` is the original CAD name if unique, or `<CAD-name>__<path>` if repeated. Examples: `BASE--ARM`, `BASE--LINK__75`, and `LINK__40_12--LINK__75_12`. Without a joint rename, this key is also the exported joint name.
 - Unknown paths, duplicate aliases, ambiguous joint renames, and output name collisions abort export with a diagnostic.
 
 Repeated coordinate-system names can be exported independently:

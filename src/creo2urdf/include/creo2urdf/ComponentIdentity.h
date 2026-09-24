@@ -57,4 +57,8 @@ inline std::map<ComponentId, std::string> resolveComponentNames(
     }
     return result;
 }
+inline std::string cadJointName(const ComponentId& parent, const ComponentId& child,
+                               const std::map<ComponentId, std::string>& cadNames) {
+    return cadNames.at(parent) + "--" + cadNames.at(child);
+}
 #endif
