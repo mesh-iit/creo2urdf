@@ -96,3 +96,9 @@ option(BUILD_TESTING "Create tests using CMake" OFF)
 ##############################
 
 set_property(GLOBAL PROPERTY USE_FOLDERS 1)
+
+if (BUILD_TESTING)
+  include( CTest )
+  enable_testing()
+  add_subdirectory(tests)
+endif()
