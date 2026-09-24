@@ -37,19 +37,33 @@ inline std::map<ComponentId, std::string> resolveComponentNames(
         if (!models.count(alias.first) || alias.second.empty())
             throw std::runtime_error("Invalid componentNames entry: " + componentIdString(alias.first));
     }
+    // A qualified key can also be an actual CAD model name. Never let one
+    // rename entry silently select two different occurrences.
+    std::map<std::string, std::set<ComponentId>> selectors;
+    for (const auto& model : models) {
+        selectors[model.second + "_" + componentIdString(model.first)].insert(model.first);
+        if (counts.at(model.second) == 1) selectors[model.second].insert(model.first);
+    }
+    for (const auto& selector : selectors) {
+        if (selector.second.size() > 1 && legacyRename.count(selector.first))
+            throw std::runtime_error("Ambiguous occurrence rename key: " + selector.first + "; use componentNames with explicit paths");
+    }
     std::map<ComponentId, std::string> result;
     std::set<std::string> used;
     for (const auto& model : models) {
         const auto alias = aliases.find(model.first);
         const auto rename = legacyRename.find(model.second);
+        const auto qualifiedName = model.second + "_" + componentIdString(model.first);
+        const auto occurrenceRename = legacyRename.find(qualifiedName);
         std::string name;
         if (alias != aliases.end()) name = alias->second;
+        else if (occurrenceRename != legacyRename.end()) name = occurrenceRename->second;
         else if (counts.at(model.second) == 1)
             name = rename == legacyRename.end() ? model.second : rename->second;
         else {
             if (rename != legacyRename.end())
-                throw std::runtime_error("Ambiguous rename for " + model.second + "; use componentNames for each occurrence");
-            name = model.second + "__" + componentIdString(model.first);
+                throw std::runtime_error("Ambiguous rename for " + model.second + "; use occurrence keys such as " + qualifiedName + " in rename, or componentNames");
+            name = qualifiedName;
         }
         if (name.empty() || !used.insert(name).second)
             throw std::runtime_error("Duplicate or empty exported link name: " + name);

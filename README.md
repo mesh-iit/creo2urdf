@@ -109,22 +109,48 @@ All internal groups are merged if they are maps, they are overwritten only if an
 | Attribute name   | Type   | Default Value | Description  |
 |:----------------:|:---------:|:------------:|:-------------:|
 | `robotName`     | String     | model name set in the file PhysicalModelingXMLFile | Used for setting the model name, i.e. the parameter `<robot name="...">` in the `URDF` model file. |
-| `rename`        | Map  | {} (Empty Map) | Structure mapping the SimMechanics XML names to the desired URDF names.  |
+| `rename`        | Map  | {} (Empty Map) | Maps CAD names, path-qualified component names, and joint keys to the desired URDF names. |
+| `componentNames` | Array | [] (Empty Array) | Assigns URDF link names to specific component occurrences using their assembly paths. See below. |
 
+##### Component names by path (`componentNames`)
+
+`componentNames` is an optional top-level YAML list that assigns a final URDF link name to an individual part occurrence. It works for both unique and repeated CAD parts. It is an alternative to naming links through `rename`, useful when you want to select a component directly by its path instead of its CAD name.
+
+Each entry has two required fields:
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `path` | Array of integers | Complete sequence of component feature IDs from the exported root assembly to the part. Copy it from `component-inventory.yaml`. |
+| `name` | String | Final URDF link name. It must be nonempty and unique among the exported links. |
+
+For example, if the inventory contains two occurrences of `BAR` at `[59]` and `[81]`, you can configure:
+
+```yaml
+componentNames:
+  - path: [59]
+    name: bar_1
+  - path: [81]
+    name: bar_2
+
+rename:
+  BARLONGER: bar_longer
+  BAR_59--BARLONGER: bar_1_bar_longer_revolute_joint
+  BARLONGER--BAR_81: bar_longer_bar_2_revolute_joint
+```
+
+This assigns the same link names as `BAR_59: bar_1` and `BAR_81: bar_2` under `rename`. You can mix the two mechanisms for different links. If both select the same occurrence, `componentNames` takes precedence: its `name` is the final name and is not passed through `rename` again. Components omitted from this list follow the normal `rename` and automatic naming rules below.
+
+Use the assigned names (`bar_1`, `bar_2`) wherever the configuration expects a URDF link name, such as `root`, `linkFrames[].linkName`, or `frameReferenceLink`. Joint keys in `rename` still use the CAD occurrence names from the inventory's `cadName` field, as shown above; link aliases do not change those keys. CSV entries and sensor `jointName` use the final joint names.
+
+For a part inside a subassembly, include the full path, for example `[40, 12]`, rather than just `[12]`. Paths are relative to the assembly being exported and should be checked after restructuring or replacing components. Unknown paths, repeated entries for the same path, empty names, or duplicate final link names abort the export with a diagnostic.
 
 ##### Repeated component occurrences
 
 Multiple occurrences of the same Creo part are supported. Internally, each link is identified by the complete sequence of component feature IDs from the root assembly. For example, `[40, 12]` and `[75, 12]` identify distinct occurrences even when both refer to the same part inside a repeated subassembly. The path is relative to the assembly being exported; it is not a global UUID and must be checked after restructuring or replacing components.
 
-The exporter writes `component-inventory.yaml` in the output directory, listing each part's `path`, CAD `model`, disambiguated `cadName`, and resolved URDF `name`. Use `cadName` to compose joint keys in `rename`. The inventory is also written without resolved names if name resolution fails. Use these paths to assign readable names:
+The exporter writes `component-inventory.yaml` in the output directory, listing each part's `path`, CAD `model`, disambiguated `cadName`, and resolved URDF `name`. Use `cadName` as the link key in `rename` and to compose joint keys. The inventory is also written without resolved names if name resolution fails. Use these paths to assign readable names:
 
 ```yaml
-componentNames:
-  - path: [40]
-    name: base_link
-  - path: [75]
-    name: moving_link
-
 root: base_link
 
 linkFrames:
@@ -134,19 +160,21 @@ linkFrames:
     frameName: CSYS
 
 rename:
-  LINK__40--LINK__75: hinge
+  LINK_40: base_link
+  LINK_75: moving_link
+  LINK_40--LINK_75: hinge
 ```
 
 The example assumes two occurrences of the CAD model `LINK`. The numbers above are examples; copy the actual IDs and `cadName` values from your inventory. Use the resolved URDF names in `root`, `linkFrames`, mass/inertia/color/collision assignments, sensors, and `frameReferenceLink`. For a moving joint named `hinge`, the CSV must contain a `hinge` row.
 
 Naming rules:
 
-- `componentNames` aliases take precedence for the specified occurrence.
-- Unique CAD names keep the existing `rename` behavior and default names.
-- Repeated parts without aliases use `<CAD-name>__<path>`, such as `LINK__40_12`.
-- A legacy `rename` entry for a repeated part requires explicit aliases for all its occurrences; it cannot select an occurrence by itself.
-- Joint keys always use `<parent-cadName>--<child-cadName>`, independently of `componentNames` and link renames. Each `cadName` is the original CAD name if unique, or `<CAD-name>__<path>` if repeated. Examples: `BASE--ARM`, `BASE--LINK__75`, and `LINK__40_12--LINK__75_12`. Without a joint rename, this key is also the exported joint name.
-- Unknown paths, duplicate aliases, ambiguous joint renames, and output name collisions abort export with a diagnostic.
+- Link naming precedence is: explicit `componentNames` alias, path-qualified `rename` key (`LINK_40_12`), unique CAD-name `rename` key, automatic name. `componentNames` remains optional for explicit path selection.
+- Unique CAD names keep the existing `rename` behavior and default names. A path-qualified key can also be used for a unique part (for example, `BASE_90: base_link`), and takes precedence over `BASE: ...`.
+- Repeated parts without aliases use `<CAD-name>_<path>`, such as `LINK_40_12`.
+- A bare `rename` key for a repeated part (such as `LINK`) is ambiguous: use `LINK_40` and `LINK_75` instead. If retained, every occurrence must have an explicit path-qualified rename or `componentNames` alias. An occurrence without a rename otherwise retains its automatic name.
+- Joint keys always use `<parent-cadName>--<child-cadName>`, independently of `componentNames` and link renames. Each `cadName` is the original CAD name if unique, or `<CAD-name>_<path>` if repeated. Examples: `BASE--ARM`, `BASE--LINK_75`, and `LINK_40_12--LINK_75_12`. Without a joint rename, this key is also the exported joint name.
+- Unknown `componentNames` paths, duplicate output names, ambiguous rename selectors and ambiguous joint renames abort export with a diagnostic. If a qualified key also matches another CAD model name, select the occurrences using explicit `componentNames` paths instead.
 
 Repeated coordinate-system names can be exported independently:
 
