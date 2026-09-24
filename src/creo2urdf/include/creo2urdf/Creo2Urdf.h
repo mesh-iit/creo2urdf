@@ -128,6 +128,7 @@ private:
     bool resolveOccurrenceNames();
     std::map<ComponentId, std::string> component_models;
     std::map<ComponentId, std::string> component_names;
+    std::map<ComponentId, std::string> component_cad_names;
     std::map<ComponentId, pfcModel_ptr> component_handles;
     std::map<std::string, size_t> model_counts;
     std::set<std::string> mesh_file_names;

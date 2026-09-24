@@ -166,6 +166,7 @@ void Creo2Urdf::runExport() {
     }
     component_models.clear();
     component_names.clear();
+    component_cad_names.clear();
     component_handles.clear();
     model_counts.clear();
     mesh_file_names.clear();
@@ -310,8 +311,8 @@ void Creo2Urdf::runExport() {
         if (!frame.second.resolved)
             throw std::runtime_error("Unresolved frame: " + frame.second.cad_frame_name + " on " + frame.second.frameReferenceLink);
 
-    // Retain legacy joint names for unique CAD models; repeated occurrences
-    // use the resolved URDF names. The CSV and sensors use these final names.
+    // Joint rename keys always use CAD occurrence names, independent of link
+    // aliases. The CSV and sensors use the final renamed joint names.
     std::map<std::string, JointInfo> namedJoints;
     for (const auto& entry : joint_info_map) {
         const auto& info = entry.second;
@@ -324,10 +325,10 @@ void Creo2Urdf::runExport() {
         const auto& p = parent->second;
         const auto& c = child->second;
         const auto legacyName = p.cad_model_name + "--" + c.cad_model_name;
-        const bool unique = model_counts.at(p.cad_model_name) == 1 && model_counts.at(c.cad_model_name) == 1;
-        if (!unique && config["rename"][legacyName].IsDefined())
-            throw std::runtime_error("Ambiguous joint rename: " + legacyName + "; use URDF link names");
-        const auto name = getRenameElementFromConfig(unique ? legacyName : p.name + "--" + c.name);
+        const auto cadName = cadJointName(info.parent_link_id, info.child_link_id, component_cad_names);
+        if (cadName != legacyName && config["rename"][legacyName].IsDefined())
+            throw std::runtime_error("Ambiguous joint rename: " + legacyName + "; use CAD occurrence names, e.g. " + cadName);
+        const auto name = getRenameElementFromConfig(cadName);
         if (!namedJoints.emplace(name, info).second)
             throw std::runtime_error("Duplicate joint name: " + name);
     }
@@ -666,13 +667,13 @@ bool Creo2Urdf::resolveOccurrenceNames() {
     for (const auto& model : component_models) {
         inventory << YAML::BeginMap << YAML::Key << "path" << YAML::Value << YAML::Flow << model.first
                   << YAML::Key << "model" << YAML::Value << model.second << YAML::EndMap;
-        printToMessageWindow("Component [" + componentIdString(model.first) + "]: " + model.second);
     }
     inventory << YAML::EndSeq;
     const auto inventoryPath = m_output_path + "\\component-inventory.yaml";
     { std::ofstream file(inventoryPath); file << inventory.c_str();
       if (!file) throw std::runtime_error("Cannot write component inventory"); }
     component_names = resolveComponentNames(component_models, aliases, renames);
+    component_cad_names = resolveComponentNames(component_models, {}, {});
     const auto requireLink = [&](const std::string& name) {
         for (const auto& entry : component_names) if (entry.second == name) return;
         throw std::runtime_error("Unknown or ambiguous URDF link: " + name + "; see component-inventory.yaml and componentNames");
@@ -684,6 +685,7 @@ bool Creo2Urdf::resolveOccurrenceNames() {
     for (const auto& model : component_models)
         namedInventory << YAML::BeginMap << YAML::Key << "path" << YAML::Value << YAML::Flow << model.first
                        << YAML::Key << "model" << YAML::Value << model.second
+                       << YAML::Key << "cadName" << YAML::Value << component_cad_names.at(model.first)
                        << YAML::Key << "name" << YAML::Value << component_names.at(model.first) << YAML::EndMap;
     namedInventory << YAML::EndSeq;
     std::ofstream file(inventoryPath);
