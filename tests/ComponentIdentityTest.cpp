@@ -13,6 +13,17 @@ template<class Function> void rejects(Function function, const char* message) {
 
 int main() {
     try {
+        struct ModelWrapper {
+            int type;
+            std::string name;
+            int GetType() const { return type; }
+            const char* GetFullName() const { return name.c_str(); }
+        };
+        ModelWrapper retrieved{1, "LINK"}, selected{1, "LINK"}, assembly{2, "LINK"}, other{1, "OTHER"};
+        check(sameComponentModel(&retrieved, &selected), "Distinct wrappers for the same model rejected");
+        check(!sameComponentModel(&retrieved, &assembly), "Part and assembly with the same name conflated");
+        check(!sameComponentModel(&retrieved, &other), "Different model definitions conflated");
+        check(!sameComponentModel(&retrieved, static_cast<ModelWrapper*>(nullptr)), "Null model accepted");
         const std::map<ComponentId, std::string> unique{{{40}, "BASE"}, {{75}, "ARM"}};
         auto names = resolveComponentNames(unique, {}, {{"BASE", "base_link"}});
         check(names.at({40}) == "base_link" && names.at({75}) == "ARM", "Legacy names changed");

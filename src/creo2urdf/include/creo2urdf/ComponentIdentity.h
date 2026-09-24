@@ -10,6 +10,14 @@
 // IDs of component features, relative to the export's root assembly.
 using ComponentId = std::vector<int>;
 
+// Compare model definitions, not the addresses of Object Toolkit wrappers.
+// This only validates a path's root/leaf; occurrence identity remains the ID path.
+template<class ModelHandle>
+bool sameComponentModel(const ModelHandle& left, const ModelHandle& right) {
+    return left && right && left->GetType() == right->GetType() &&
+           std::string(left->GetFullName()) == std::string(right->GetFullName());
+}
+
 inline std::string componentIdString(const ComponentId& id) {
     std::string result;
     for (int value : id) {

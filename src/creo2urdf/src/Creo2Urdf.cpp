@@ -135,7 +135,7 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
         LinkInfo l_info{ componentId, link_name, urdf_link_name, component_handle, parentAsm_H_linkFrame, csysAsm_H_linkFrame, link_frame_name };
         if (!link_info_map.emplace(componentId, l_info).second) return false;
 
-        if (!idyn_model.addLink(urdf_link_name, link))
+        if (idyn_model.addLink(urdf_link_name, link) == iDynTree::LINK_INVALID_INDEX)
             throw std::runtime_error("Failed to add link " + urdf_link_name);
         if (!addMeshAndExport(l_info)) {
             printToMessageWindow("Failed to export mesh for " + link_name, c2uLogLevel::WARN);

@@ -68,6 +68,7 @@ public:
 private:
     wfcElementTree_ptr tree{ nullptr }; ///< Pointer to the ElementTree of the part as feature.
     wfcWFeature_ptr wfeat{ nullptr };   ///< Pointer to the part as feature.
+    pfcComponentConstraints_ptr constraints{ nullptr }; ///< Constraints in the owning occurrence's context.
 
     /*
      * @brief Retrieves the name of a common datum for the given model item type.
