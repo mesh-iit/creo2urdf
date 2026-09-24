@@ -30,39 +30,60 @@ int main() {
 
         const std::map<ComponentId, std::string> repeated{{{40}, "LINK"}, {{75}, "LINK"}};
         names = resolveComponentNames(repeated, {}, {});
-        check(names.at({40}) == "LINK__40" && names.at({75}) == "LINK__75", "Repeated parts collide");
+        check(names.at({40}) == "LINK_40" && names.at({75}) == "LINK_75", "Repeated parts collide");
         names = resolveComponentNames(repeated, {{{40}, "base"}, {{75}, "moving"}}, {});
         check(names.at({40}) == "base" && names.at({75}) == "moving", "Occurrence aliases ignored");
+        names = resolveComponentNames(repeated, {}, {{"LINK_40", "base"}, {"LINK_75", "moving"}});
+        check(names.at({40}) == "base" && names.at({75}) == "moving", "Qualified rename ignored");
+        names = resolveComponentNames(unique, {}, {{"BASE", "legacy"}, {"BASE_40", "specific"}});
+        check(names.at({40}) == "specific", "Occurrence rename should override a model rename");
+        names = resolveComponentNames(repeated, {{{40}, "explicit"}}, {{"LINK_40", "other"}});
+        check(names.at({40}) == "explicit" && names.at({75}) == "LINK_75", "Alias precedence or automatic fallback changed");
 
         const std::map<ComponentId, std::string> nested{{{40, 12}, "LINK"}, {{75, 12}, "LINK"}};
         names = resolveComponentNames(nested, {}, {});
-        check(names.at({40, 12}) == "LINK__40_12" && names.at({75, 12}) == "LINK__75_12",
+        check(names.at({40, 12}) == "LINK_40_12" && names.at({75, 12}) == "LINK_75_12",
               "Repeated subassemblies lost their ancestor identity");
         check(componentIdString({1, 23}) != componentIdString({12, 3}), "Path serialization collides");
+        names = resolveComponentNames(nested, {}, {{"LINK_40_12", "left"}, {"LINK_75_12", "right"}});
+        check(names.at({40, 12}) == "left" && names.at({75, 12}) == "right", "Nested occurrence rename failed");
+        const std::map<ComponentId, std::string> bars{{{59}, "BAR"}, {{79}, "BARLONGER"}, {{81}, "BAR"}};
+        names = resolveComponentNames(bars, {}, {{"BAR_59", "bar_1"}, {"BAR_81", "bar_2"},
+            {"BARLONGER", "bar_longer"}, {"BAR_59--BARLONGER", "hinge"}});
+        check(names.at({59}) == "bar_1" && names.at({79}) == "bar_longer" && names.at({81}) == "bar_2",
+              "Three-bar YAML rename configuration failed");
 
         check(cadJointName({40}, {75}, resolveComponentNames(unique, {}, {})) == "BASE--ARM",
               "Unique CAD joint naming changed");
         const auto cadNames = resolveComponentNames(repeated, {}, {});
-        check(cadJointName({40}, {75}, cadNames) == "LINK__40--LINK__75",
+        check(cadJointName({40}, {75}, cadNames) == "LINK_40--LINK_75",
               "Repeated CAD joint naming lost occurrence suffixes");
         const auto renamedLinks = resolveComponentNames(repeated, {{{40}, "root"}, {{75}, "tip"}}, {});
-        check(renamedLinks.at({40}) == "root" && cadJointName({40}, {75}, cadNames) == "LINK__40--LINK__75",
+        check(renamedLinks.at({40}) == "root" && cadJointName({40}, {75}, cadNames) == "LINK_40--LINK_75",
               "Link aliases changed the CAD joint key");
-        check(cadJointName({40, 12}, {75, 12}, resolveComponentNames(nested, {}, {})) == "LINK__40_12--LINK__75_12",
+        check(cadJointName({40, 12}, {75, 12}, resolveComponentNames(nested, {}, {})) == "LINK_40_12--LINK_75_12",
               "Joint naming lost the full assembly path");
         auto mixed = repeated;
         mixed.emplace(ComponentId{90}, "BASE");
-        check(cadJointName({90}, {75}, resolveComponentNames(mixed, {}, {})) == "BASE--LINK__75",
+        check(cadJointName({90}, {75}, resolveComponentNames(mixed, {}, {})) == "BASE--LINK_75",
               "Only repeated endpoints should have a suffix");
 
         rejects([&] { resolveComponentNames(repeated, {}, {{"LINK", "link"}}); }, "Ambiguous legacy rename accepted");
+        rejects([&] { resolveComponentNames(repeated, {}, {{"LINK_40", "same"}, {"LINK_75", "same"}}); }, "Duplicate occurrence rename accepted");
+        rejects([&] { resolveComponentNames(repeated, {}, {{"LINK_40", ""}}); }, "Empty occurrence rename accepted");
+        rejects([&] { resolveComponentNames(repeated, {}, {{"LINK", "ambiguous"}, {"LINK_40", "base"}}); }, "Unresolved legacy ambiguity accepted");
         rejects([&] { resolveComponentNames(repeated, {{{40}, "same"}, {{75}, "same"}}, {}); }, "Duplicate alias accepted");
         rejects([&] { resolveComponentNames(unique, {{{99}, "missing"}}, {}); }, "Unknown path accepted");
         rejects([&] { resolveComponentNames(unique, {{{40}, ""}}, {}); }, "Empty name accepted");
-        rejects([&] { resolveComponentNames(repeated, {{{40}, "LINK__75"}}, {}); }, "Alias collides with generated name");
+        rejects([&] { resolveComponentNames(repeated, {{{40}, "LINK_75"}}, {}); }, "Alias collides with generated name");
         auto collision = repeated;
-        collision.emplace(ComponentId{90}, "LINK__40");
+        collision.emplace(ComponentId{90}, "LINK_40");
         rejects([&] { resolveComponentNames(collision, {}, {}); }, "CAD name collides with generated name");
+        rejects([&] { resolveComponentNames(collision, {}, {{"LINK_40", "base"}}); }, "Ambiguous selector accepted");
+        const std::map<ComponentId, std::string> suffixCollision{
+            {{1, 2}, "LINK"}, {{3}, "LINK"}, {{2}, "LINK_1"}, {{4}, "LINK_1"}};
+        rejects([&] { resolveComponentNames(suffixCollision, {}, {}); },
+                "CAD name suffix collides with a nested occurrence path");
 
         // Explicit aliases take precedence over a legacy entry for the repeated model.
         names = resolveComponentNames(repeated, {{{40}, "base"}, {{75}, "moving"}}, {{"LINK", "old"}});
