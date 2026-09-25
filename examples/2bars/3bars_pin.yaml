@@ -1,0 +1,59 @@
+robotName: 2bars
+scale: [0.001,0.001,0.001]
+root: bar_1
+
+# Model base origin
+originXYZ: [0.0,0.0,0.80]
+originRPY: [0.0,0.0,0.0]
+# Meshes options
+filenameformat: "package://2bars/meshes/simmechanics/%s.stl"
+epsilon: 2e-4
+exportMeshes: Yes
+
+forcelowercase: Yes
+
+
+rename:
+    BAR_59: bar_1
+    BAR_81: bar_2
+    BARLONGER: bar_longer
+    BAR_59--BARLONGER: bar_1_bar_longer_revolute_joint
+    BARLONGER--BAR_81: bar_longer_bar_2_revolute_joint
+
+
+assignedMasses:
+ bar_1   : 2.0645667
+ bar_2   : 2.0645667
+ bar_longer: 4.1291334
+
+assignedInertias:
+  - linkName: bar_1
+    xx: 0.0074060860
+    yy: 0.0059470733
+    zz: 0.0031780111
+  - linkName: bar_2
+    xx: 0.0074060860
+    yy: 0.0059470733
+    zz: 0.0031780111
+
+assignedColors:
+  bar_1         : [0.6, 0.6, 0.6, 1]
+  bar_2         : [0.6, 0.6, 0.6, 1]
+  bar_longer  : [0.6, 0.6, 0.6, 1]
+  
+
+
+reverseRotationAxis:
+  bar_1_bar_longer_revolute_joint
+  bar_longer_bar_2_revolute_joint
+
+XMLBlobs:
+    - |
+            <link name="fake_link"/>
+    - |
+            <joint name="fake_link_fixed_joint" type="fixed">
+              <origin xyz="0.0606 -0.00639428 0.01745" rpy="1.5708 -0.000105208 -1.5708"/>
+              <parent link="bar_longer"/>
+              <child link="fake_link"/>
+              <dynamics damping="0.1"/>
+            </joint>

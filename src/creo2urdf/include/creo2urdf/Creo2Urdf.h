@@ -69,6 +69,7 @@ public:
                                                                                                                                        m_root_asm_model_ptr(asm_model_ptr) { }
 
 private:
+    void runExport();
     /**
      * @brief Export the iDynTree model to URDF format if it is valid.
      * @param mdl The iDynTree model to be exported.
@@ -89,10 +90,10 @@ private:
     iDynTree::SpatialInertia computeSpatialInertiafromCreo(pfcMassProperty_ptr mass_prop, iDynTree::Transform H, const std::string& link_name);
 
     /**
-     * @brief Populate the exported frame information map from the Creo model handle.
-     * @param modelhdl The Creo model handle.
+     * @brief Populate frame transforms for one component occurrence.
+     * @param link The occurrence and its resolved URDF name.
      */
-    void populateExportedFrameInfoMap(pfcModel_ptr modelhdl);
+    bool populateExportedFrameInfoMap(const LinkInfo& link);
 
     /**
      * @brief Read assigned inertias from the loaded YAML configuration.
@@ -111,11 +112,10 @@ private:
 
     /**
      * @brief Creates a mesh file from the Creo model in the form defined in the configuration file.
-     * @param component_handle The part as a Creo model.
-     * @param mesh_transform The 3D transform associated to the mesh.
+     * @param link The occurrence owning the mesh and its export coordinate system.
      * @return True if successful, false otherwise.
      */
-    bool addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform);
+    bool addMeshAndExport(const LinkInfo& link);
 
     /**
      * @brief Load YAML configuration from a file.
@@ -124,7 +124,14 @@ private:
      */
     bool loadYamlConfig(const std::string& filename);
 
-    bool processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, iDynTree::Transform parentAsm_H_csysAsm = iDynTree::Transform::Identity());
+    bool processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, iDynTree::Transform parentAsm_H_csysAsm = iDynTree::Transform::Identity(), ComponentId ownerId = {}, bool collectOnly = false);
+    bool resolveOccurrenceNames();
+    std::map<ComponentId, std::string> component_models;
+    std::map<ComponentId, std::string> component_names;
+    std::map<ComponentId, std::string> component_cad_names;
+    std::map<ComponentId, pfcModel_ptr> component_handles;
+    std::map<std::string, size_t> model_counts;
+    std::set<std::string> mesh_file_names;
 
     bool setJointParametersFromCsv(const rapidcsv::Document& csv, const std::string& joint_name, 
         iDynTree::IJoint& joint, double conversion_factor);
@@ -138,7 +145,7 @@ private:
 
     iDynTree::Model idyn_model; /**< The iDynTree model representing the mechanism tree. */
     std::map<std::string, JointInfo> joint_info_map; /**< Map storing information about joints. */
-    std::map<std::string, LinkInfo> link_info_map; /**< Map storing information about links. */
+    std::map<ComponentId, LinkInfo> link_info_map; /**< Map storing information about links. */
     std::map<std::string, ExportedFrameInfo> exported_frame_info_map; /**< Map storing information about exported frames. */
     std::map<std::string, std::array<double,3>> assigned_inertias_map; /**< Map storing assigned inertias. 0 -> xx, 1 -> yy, 2 -> zz. */
     std::map<std::string, CollisionGeometryInfo> assigned_collision_geometry_map; /**< Map storing assigned collision geometries. */
