@@ -27,12 +27,39 @@ inline std::string componentIdString(const ComponentId& id) {
     return result;
 }
 
+inline std::map<ComponentId, std::string> resolveCadComponentNames(
+    const std::map<ComponentId, std::string>& models) {
+    std::map<std::string, size_t> counts, candidateCounts;
+    for (const auto& model : models) ++counts[model.second];
+    std::map<ComponentId, std::string> result;
+    std::set<std::string> reserved;
+    for (const auto& model : models) {
+        auto name = model.second;
+        if (counts.at(name) > 1) name += "_" + componentIdString(model.first);
+        result.emplace(model.first, name);
+        ++candidateCounts[name];
+        reserved.insert(name);
+        // Also avoid stealing any explicit path-qualified selector.
+        reserved.insert(model.second + "_" + componentIdString(model.first));
+    }
+    for (auto& entry : result) {
+        if (candidateCounts.at(entry.second) == 1) continue;
+        // Preserve actual unique CAD names; disambiguate generated names only.
+        if (counts.at(models.at(entry.first)) == 1) continue;
+        auto name = entry.second + "_occ_" + componentIdString(entry.first);
+        while (!reserved.insert(name).second) name += "_";
+        entry.second = name;
+    }
+    return result;
+}
+
 inline std::map<ComponentId, std::string> resolveComponentNames(
     const std::map<ComponentId, std::string>& models,
     const std::map<ComponentId, std::string>& aliases,
     const std::map<std::string, std::string>& legacyRename) {
     std::map<std::string, size_t> counts;
     for (const auto& model : models) ++counts[model.second];
+    const auto cadNames = resolveCadComponentNames(models);
     for (const auto& alias : aliases) {
         if (!models.count(alias.first) || alias.second.empty())
             throw std::runtime_error("Invalid componentNames entry: " + componentIdString(alias.first));
@@ -43,6 +70,7 @@ inline std::map<ComponentId, std::string> resolveComponentNames(
     for (const auto& model : models) {
         selectors[model.second + "_" + componentIdString(model.first)].insert(model.first);
         if (counts.at(model.second) == 1) selectors[model.second].insert(model.first);
+        selectors[cadNames.at(model.first)].insert(model.first);
     }
     for (const auto& selector : selectors) {
         if (selector.second.size() > 1 && legacyRename.count(selector.first))
@@ -55,15 +83,17 @@ inline std::map<ComponentId, std::string> resolveComponentNames(
         const auto rename = legacyRename.find(model.second);
         const auto qualifiedName = model.second + "_" + componentIdString(model.first);
         const auto occurrenceRename = legacyRename.find(qualifiedName);
+        const auto cadRename = legacyRename.find(cadNames.at(model.first));
         std::string name;
         if (alias != aliases.end()) name = alias->second;
         else if (occurrenceRename != legacyRename.end()) name = occurrenceRename->second;
+        else if (cadRename != legacyRename.end()) name = cadRename->second;
         else if (counts.at(model.second) == 1)
             name = rename == legacyRename.end() ? model.second : rename->second;
         else {
             if (rename != legacyRename.end())
                 throw std::runtime_error("Ambiguous rename for " + model.second + "; use occurrence keys such as " + qualifiedName + " in rename, or componentNames");
-            name = qualifiedName;
+            name = cadNames.at(model.first);
         }
         if (name.empty() || !used.insert(name).second)
             throw std::runtime_error("Duplicate or empty exported link name: " + name);

@@ -78,12 +78,22 @@ int main() {
         rejects([&] { resolveComponentNames(repeated, {{{40}, "LINK_75"}}, {}); }, "Alias collides with generated name");
         auto collision = repeated;
         collision.emplace(ComponentId{90}, "LINK_40");
-        rejects([&] { resolveComponentNames(collision, {}, {}); }, "CAD name collides with generated name");
+        const auto collisionCad = resolveCadComponentNames(collision);
+        check(collisionCad.at({90}) == "LINK_40" && collisionCad.at({40}) == "LINK_40_occ_40",
+              "Generated CAD name shadows an actual model name");
+        names = resolveComponentNames(collision, {{{40}, "base"}, {{75}, "arm"}, {{90}, "tip"}}, {});
+        check(names.at({40}) == "base" && cadJointName({40}, {90}, collisionCad) == "LINK_40_occ_40--LINK_40",
+              "Aliases do not resolve the full CAD catalog collision");
+        names = resolveComponentNames(collision, {}, {{"LINK_40_occ_40", "base"}});
+        check(names.at({40}) == "base", "Disambiguated inventory key cannot be renamed");
         rejects([&] { resolveComponentNames(collision, {}, {{"LINK_40", "base"}}); }, "Ambiguous selector accepted");
         const std::map<ComponentId, std::string> suffixCollision{
             {{1, 2}, "LINK"}, {{3}, "LINK"}, {{2}, "LINK_1"}, {{4}, "LINK_1"}};
-        rejects([&] { resolveComponentNames(suffixCollision, {}, {}); },
-                "CAD name suffix collides with a nested occurrence path");
+        names = resolveComponentNames(suffixCollision, {}, {});
+        check(names.at({1, 2}) != names.at({2}), "Nested generated CAD names collide");
+        collision.emplace(ComponentId{91}, "LINK_40_occ_40");
+        names = resolveCadComponentNames(collision);
+        check(names.at({40}) != names.at({91}), "Collision fallback shadows a real CAD name");
 
         // Explicit aliases take precedence over a legacy entry for the repeated model.
         names = resolveComponentNames(repeated, {{{40}, "base"}, {{75}, "moving"}}, {{"LINK", "old"}});

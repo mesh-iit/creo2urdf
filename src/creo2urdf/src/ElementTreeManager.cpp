@@ -186,7 +186,17 @@ bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId,
     auto ownerIds = xintsequence::create();
     for (int id : ownerId) ownerIds->append(id);
     auto ownerPath = pfcCreateComponentPath(pfcAssembly::cast(contexts.at(ComponentId{})), ownerIds);
-    constraints = pfcComponentFeat::cast(wfeat)->GetConstraintsWithCompPath(ownerPath);
+    constraints = nullptr;
+    try {
+        constraints = pfcComponentFeat::cast(wfeat)->GetConstraintsWithCompPath(ownerPath);
+    }
+    xcatchbegin
+    xcatchcip(pfcXToolkitNotFound)
+    {
+        // Packaged components have no placement constraints (including a base).
+        return false;
+    }
+    xcatchend
     if (!constraints) return false;
     bool found = false;
     for (int i = 0; i < constraints->getarraysize(); ++i) {
@@ -202,6 +212,10 @@ bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId,
             throw std::runtime_error(errorPrefix + " (assembly reference): " + failure);
         if (!normalize(child, componentId, c))
             throw std::runtime_error(errorPrefix + " (component reference): " + failure);
+        // A valid reference to an intentionally excluded solid is not an
+        // invalid occurrence. No URDF joint can be created for this feature.
+        if (pfcSolid::cast(contexts.at(p))->GetIsSkeleton() ||
+            pfcSolid::cast(contexts.at(c))->GetIsSkeleton()) return false;
         if (p == c) throw std::runtime_error("Joint references the same occurrence twice: " + componentIdString(p));
         if (found && (p != parent_id || c != child_id))
             throw std::runtime_error("Multiple link pairs/constraint sets are unsupported at component " + componentIdString(componentId));

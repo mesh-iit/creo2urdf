@@ -4,6 +4,17 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   enable_testing()
 endif()
 
+# Exercise the actual sensor resolver with datum access stubbed out (no Creo session).
+if(TARGET creo2urdf)
+  add_executable(sensor_frame_test SensorFrameTest.cpp ../src/creo2urdf/src/Sensorizer.cpp)
+  target_compile_features(sensor_frame_test PRIVATE cxx_std_14)
+  target_compile_definitions(sensor_frame_test PRIVATE _USE_MATH_DEFINES PRO_MACHINE=36 PRO_OS=4)
+  target_include_directories(sensor_frame_test PRIVATE $<TARGET_PROPERTY:creo2urdf,INCLUDE_DIRECTORIES>)
+  target_link_directories(sensor_frame_test PRIVATE $<TARGET_PROPERTY:creo2urdf,LINK_DIRECTORIES>)
+  target_link_libraries(sensor_frame_test PRIVATE $<TARGET_PROPERTY:creo2urdf,LINK_LIBRARIES>)
+  add_test(NAME sensor_frame COMMAND sensor_frame_test)
+endif()
+
 add_executable(component_identity_test ComponentIdentityTest.cpp)
 target_compile_features(component_identity_test PRIVATE cxx_std_14)
 target_include_directories(component_identity_test PRIVATE ../src/creo2urdf/include)
