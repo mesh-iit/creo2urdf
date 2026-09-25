@@ -35,6 +35,11 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
             return false;
         }
 
+        auto componentId = ownerId;
+        componentId.push_back(asmItemAsFeat->GetId());
+        // Keep excluded solids available for reference validation, but never
+        // include them in the exported link/name inventory.
+        if (collectOnly) component_handles.emplace(componentId, component_handle);
         if(pfcSolid::cast(component_handle)->GetIsSkeleton())
         {   
             printToMessageWindow(std::string(component_handle->GetFullName()) + " is a skeleton, skipping", c2uLogLevel::INFO);
@@ -43,10 +48,7 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
 
         //printToMessageWindow("Processing " + string(component_handle->GetFullName()) + " Owner " + string(model_owner->GetFullName()));
 
-        auto componentId = ownerId;
-        componentId.push_back(asmItemAsFeat->GetId());
         if (collectOnly) {
-            component_handles.emplace(componentId, component_handle);
             if (component_handle->GetType() == pfcMDL_ASSEMBLY) {
                 if (!processAsmItems(component_handle->ListItems(pfcITEM_FEATURE), component_handle,
                                      iDynTree::Transform::Identity(), componentId, true)) return false;
@@ -679,7 +681,7 @@ bool Creo2Urdf::resolveOccurrenceNames() {
     { std::ofstream file(inventoryPath); file << inventory.c_str();
       if (!file) throw std::runtime_error("Cannot write component inventory"); }
     component_names = resolveComponentNames(component_models, aliases, renames);
-    component_cad_names = resolveComponentNames(component_models, {}, {});
+    component_cad_names = resolveCadComponentNames(component_models);
     const auto requireLink = [&](const std::string& name) {
         for (const auto& entry : component_names) if (entry.second == name) return;
         throw std::runtime_error("Unknown or ambiguous URDF link: " + name + "; see component-inventory.yaml and componentNames");

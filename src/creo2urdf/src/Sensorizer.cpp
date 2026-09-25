@@ -124,6 +124,8 @@ const LinkInfo& sensorLink(const std::map<ComponentId, LinkInfo>& links, const s
 iDynTree::Transform sensorWorldFrame(const std::map<std::string, ExportedFrameInfo>& frames,
     const std::map<ComponentId, LinkInfo>& links, const std::string& frameName,
     const std::string& referenceName, const std::array<double, 3>& scale) {
+    // An empty frame selects the reference link frame, without a datum lookup.
+    if (frameName.empty()) return sensorLink(links, referenceName).rootAsm_H_linkFrame;
     const ExportedFrameInfo* match = nullptr;
     auto named = frames.find(frameName);
     if (named != frames.end() && (referenceName.empty() || named->second.frameReferenceLink == referenceName))
