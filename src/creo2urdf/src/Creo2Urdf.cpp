@@ -40,7 +40,7 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
         componentId.push_back(asmItemAsFeat->GetId());
         // Keep excluded solids available for reference validation, but never
         // include them in the exported link/name inventory.
-        if (collectOnly) component_handles.emplace(componentId, component_handle);
+        if (collectOnly) compID_modelhdl_map.emplace(componentId, component_handle);
         if(pfcSolid::cast(component_handle)->GetIsSkeleton())
         {   
             printToMessageWindow(std::string(component_handle->GetFullName()) + " is a skeleton, skipping", c2uLogLevel::INFO);
@@ -54,7 +54,7 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
                 if (!processAsmItems(component_handle->ListItems(pfcITEM_FEATURE), component_handle,
                                      iDynTree::Transform::Identity(), componentId, true)) return false;
             } else {
-                component_models.emplace(componentId, std::string(component_handle->GetFullName()));
+                compID_origCADName_map.emplace(componentId, std::string(component_handle->GetFullName()));
                 ++model_counts[std::string(component_handle->GetFullName())];
             }
             continue;
@@ -63,7 +63,7 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
         seq->append(asmItemAsFeat->GetId());
 
         ElementTreeManager element_tree_manager;
-        element_tree_manager.populateJointInfoFromElementTree(asmItemAsFeat, joint_info_map, ownerId, component_handles);
+        element_tree_manager.populateJointInfoFromElementTree(asmItemAsFeat, joint_info_map, ownerId, compID_modelhdl_map);
 
         pfcComponentPath_ptr comp_path = pfcCreateComponentPath(pfcAssembly::cast(model_owner), seq);
 
@@ -94,7 +94,7 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
         }
         {
             link_frame_name = "";
-            urdf_link_name = component_names.at(componentId);
+            urdf_link_name = compID_URDFName_map.at(componentId);
             for (const auto& lf : config["linkFrames"]) {
                 if (lf["linkName"].Scalar() != urdf_link_name)
                 {
@@ -173,10 +173,10 @@ void Creo2Urdf::runExport() {
         assigned_inertias_map.clear();
         assigned_collision_geometry_map.clear();
     }
-    component_models.clear();
-    component_names.clear();
-    component_cad_names.clear();
-    component_handles.clear();
+    compID_origCADName_map.clear();
+    compID_URDFName_map.clear();
+    compID_inventoryCADName_map.clear();
+    compID_modelhdl_map.clear();
     model_counts.clear();
     mesh_file_names.clear();
     m_need_to_move_link_frames_to_be_compatible_with_URDF = false;
@@ -295,7 +295,7 @@ void Creo2Urdf::runExport() {
         }
     }
 
-    component_handles.emplace(ComponentId{}, m_root_asm_model_ptr);
+    compID_modelhdl_map.emplace(ComponentId{}, m_root_asm_model_ptr);
     if (!processAsmItems(asm_component_list, m_root_asm_model_ptr, iDynTree::Transform::Identity(), {}, true)
         || !resolveOccurrenceNames()) return;
     readExportedFramesFromConfig();
@@ -334,7 +334,7 @@ void Creo2Urdf::runExport() {
         const auto& p = parent->second;
         const auto& c = child->second;
         const auto legacyName = p.cad_model_name + "--" + c.cad_model_name;
-        const auto cadName = cadJointName(info.parent_link_id, info.child_link_id, component_cad_names);
+        const auto cadName = cadJointName(info.parent_link_id, info.child_link_id, compID_inventoryCADName_map);
         if (cadName != legacyName && config["rename"][legacyName].IsDefined())
             throw std::runtime_error("Ambiguous joint rename: " + legacyName + "; use CAD occurrence names, e.g. " + cadName);
         const auto name = getRenameElementFromConfig(cadName);
@@ -687,7 +687,7 @@ bool Creo2Urdf::resolveOccurrenceNames() {
     // Write the inventory even if aliases fail validation, so paths can be corrected.
     YAML::Emitter inventory;
     inventory << YAML::BeginSeq;
-    for (const auto& model : component_models) {
+    for (const auto& model : compID_origCADName_map) {
         inventory << YAML::BeginMap << YAML::Key << "path" << YAML::Value << YAML::Flow << model.first
                   << YAML::Key << "model" << YAML::Value << model.second << YAML::EndMap;
     }
@@ -695,21 +695,21 @@ bool Creo2Urdf::resolveOccurrenceNames() {
     const auto inventoryPath = m_output_path + "\\component-inventory.yaml";
     { std::ofstream file(inventoryPath); file << inventory.c_str();
       if (!file) throw std::runtime_error("Cannot write component inventory"); }
-    component_names = resolveComponentNames(component_models, aliases, renames);
-    component_cad_names = resolveCadComponentNames(component_models);
+    compID_URDFName_map = resolveComponentNames(compID_origCADName_map, aliases, renames);
+    compID_inventoryCADName_map = resolveCadComponentNames(compID_origCADName_map);
     const auto requireLink = [&](const std::string& name) {
-        for (const auto& entry : component_names) if (entry.second == name) return;
+        for (const auto& entry : compID_URDFName_map) if (entry.second == name) return;
         throw std::runtime_error("Unknown or ambiguous URDF link: " + name + "; see component-inventory.yaml and componentNames");
     };
     if (config["root"]) requireLink(config["root"].as<std::string>());
     for (const auto& frame : config["linkFrames"]) requireLink(frame["linkName"].as<std::string>());
     YAML::Emitter namedInventory;
     namedInventory << YAML::BeginSeq;
-    for (const auto& model : component_models)
+    for (const auto& model : compID_origCADName_map)
         namedInventory << YAML::BeginMap << YAML::Key << "path" << YAML::Value << YAML::Flow << model.first
                        << YAML::Key << "model" << YAML::Value << model.second
-                       << YAML::Key << "cadName" << YAML::Value << component_cad_names.at(model.first)
-                       << YAML::Key << "name" << YAML::Value << component_names.at(model.first) << YAML::EndMap;
+                       << YAML::Key << "cadName" << YAML::Value << compID_inventoryCADName_map.at(model.first)
+                       << YAML::Key << "name" << YAML::Value << compID_URDFName_map.at(model.first) << YAML::EndMap;
     namedInventory << YAML::EndSeq;
     std::ofstream file(inventoryPath);
     file << namedInventory.c_str();
@@ -804,9 +804,9 @@ void Creo2Urdf::readExportedFramesFromConfig() {
         frame.exportedFrameName = ef["exportedFrameName"].as<std::string>();
         const auto reference = ef["frameReferenceLink"].as<std::string>("");
         size_t matches = 0;
-        for (const auto& component : component_names) {
+        for (const auto& component : compID_URDFName_map) {
             if (!reference.empty() && reference != component.second) continue;
-            auto csys = component_handles.at(component.first)->ListItems(pfcITEM_COORD_SYS);
+            auto csys = compID_modelhdl_map.at(component.first)->ListItems(pfcITEM_COORD_SYS);
             for (int i = 0; i < csys->getarraysize(); ++i) {
                 if (std::string(csys->get(i)->GetName()) != frame.cad_frame_name) continue;
                 frame.frameReferenceLink = component.second;
@@ -820,7 +820,7 @@ void Creo2Urdf::readExportedFramesFromConfig() {
             frame.additionalTransformation.setPosition({values[0], values[1], values[2]});
             frame.additionalTransformation.setRotation(iDynTree::Rotation::RPY(values[3], values[4], values[5]));
         }
-        for (const auto& component : component_names)
+        for (const auto& component : compID_URDFName_map)
             if (component.second == frame.exportedFrameName)
                 throw std::runtime_error("Frame name collides with link: " + frame.exportedFrameName);
         if (frame.exportedFrameName.empty() || !exported_frame_info_map.emplace(frame.exportedFrameName, frame).second)
