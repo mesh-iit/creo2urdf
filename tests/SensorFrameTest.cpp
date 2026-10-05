@@ -11,7 +11,9 @@ std::pair<bool, iDynTree::Transform> getTransformFromPart(
 void printToMessageWindow(std::string, c2uLogLevel) {}
 
 static void check(bool value, const char* message) {
-    if (!value) throw std::runtime_error(message);
+    if (!value) {
+        throw std::runtime_error(message);
+    }
 }
 
 int main() {

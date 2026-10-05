@@ -40,7 +40,9 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
         componentId.push_back(asmItemAsFeat->GetId());
         // Keep excluded solids available for reference validation, but never
         // include them in the exported link/name inventory.
-        if (collectOnly) compID_modelhdl_map.emplace(componentId, component_handle);
+        if (collectOnly) {
+            compID_modelhdl_map.emplace(componentId, component_handle);
+        }
         if(pfcSolid::cast(component_handle)->GetIsSkeleton())
         {   
             printToMessageWindow(std::string(component_handle->GetFullName()) + " is a skeleton, skipping", c2uLogLevel::INFO);
@@ -52,9 +54,17 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
         if (collectOnly) {
             if (component_handle->GetType() == pfcMDL_ASSEMBLY) {
                 if (!processAsmItems(component_handle->ListItems(pfcITEM_FEATURE), component_handle,
-                                     iDynTree::Transform::Identity(), componentId, true)) return false;
+                                     iDynTree::Transform::Identity(), componentId, true)) {
+                    return false;
+                }
             } else {
-                compID_origCADName_map.emplace(componentId, std::string(component_handle->GetFullName()));
+                LinkInfo linkInfo;
+                linkInfo.id = componentId;
+                linkInfo.cad_model_name = std::string(component_handle->GetFullName());
+                linkInfo.modelhdl = component_handle;
+                if (!link_info_map.emplace(componentId, linkInfo).second) {
+                    throw std::runtime_error("Duplicate link occurrence: " + componentIdString(componentId));
+                }
                 ++model_counts[std::string(component_handle->GetFullName())];
             }
             continue;
@@ -89,12 +99,14 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
             }
             xcatchend
             if (!processAsmItems(component_handle->ListItems(pfcITEM_FEATURE), component_handle,
-                                 root_H_assembly, componentId)) return false;
+                                 root_H_assembly, componentId)) {
+                return false;
+            }
             continue;
         }
         {
             link_frame_name = "";
-            urdf_link_name = compID_URDFName_map.at(componentId);
+            urdf_link_name = link_info_map.at(componentId).name;
             for (const auto& lf : config["linkFrames"]) {
                 if (lf["linkName"].Scalar() != urdf_link_name)
                 {
@@ -106,14 +118,18 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
             if (link_frame_name.empty()) {
                 std::tie(ret, link_frame_name) = getFirstCoordinateSystemName(component_handle);
                 
-                if (!ret) return false;
+                if (!ret) {
+                    return false;
+                }
 
                 printToMessageWindow(link_name + " misses the frame in the linkFrames section, " + link_frame_name + " will be used instead", c2uLogLevel::WARN);
             }
         }
         std::tie(ret, csysAsm_H_linkFrame) = getTransformFromOwnerToLinkFrame(comp_path, component_handle, link_frame_name, scale);
 
-        if (!ret) return false;
+        if (!ret) {
+            return false;
+        }
         parentAsm_H_linkFrame = parentAsm_H_csysAsm * csysAsm_H_linkFrame;
 
         auto mass_prop = pfcSolid::cast(component_handle)->GetMassProperty();
@@ -135,11 +151,15 @@ bool Creo2Urdf::processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr mod
             }
         }
 
-        LinkInfo l_info{ componentId, link_name, urdf_link_name, component_handle, parentAsm_H_linkFrame, csysAsm_H_linkFrame, link_frame_name };
-        if (!link_info_map.emplace(componentId, l_info).second) return false;
+        // Complete the collected record without replacing its resolved names.
+        auto& l_info = link_info_map.at(componentId);
+        l_info.rootAsm_H_linkFrame = parentAsm_H_linkFrame;
+        l_info.csysAsm_H_linkFrame = csysAsm_H_linkFrame;
+        l_info.link_frame_name = link_frame_name;
 
-        if (idyn_model.addLink(urdf_link_name, link) == iDynTree::LINK_INVALID_INDEX)
+        if (idyn_model.addLink(urdf_link_name, link) == iDynTree::LINK_INVALID_INDEX) {
             throw std::runtime_error("Failed to add link " + urdf_link_name);
+        }
         if (!addMeshAndExport(l_info)) {
             printToMessageWindow("Failed to export mesh for " + link_name, c2uLogLevel::WARN);
             if (warningsAreFatal) {
@@ -173,9 +193,6 @@ void Creo2Urdf::runExport() {
         assigned_inertias_map.clear();
         assigned_collision_geometry_map.clear();
     }
-    compID_origCADName_map.clear();
-    compID_URDFName_map.clear();
-    compID_inventoryCADName_map.clear();
     compID_modelhdl_map.clear();
     model_counts.clear();
     mesh_file_names.clear();
@@ -297,7 +314,9 @@ void Creo2Urdf::runExport() {
 
     compID_modelhdl_map.emplace(ComponentId{}, m_root_asm_model_ptr);
     if (!processAsmItems(asm_component_list, m_root_asm_model_ptr, iDynTree::Transform::Identity(), {}, true)
-        || !resolveOccurrenceNames()) return;
+        || !resolveOccurrenceNames()) {
+        return;
+    }
     readExportedFramesFromConfig();
     readAssignedInertiasFromConfig();
     readAssignedCollisionGeometryFromConfig();
@@ -314,11 +333,16 @@ void Creo2Urdf::runExport() {
         return;
     }
 
-    for (const auto& link : link_info_map)
-        if (!populateExportedFrameInfoMap(link.second)) return;
-    for (const auto& frame : exported_frame_info_map)
-        if (!frame.second.resolved)
+    for (const auto& link : link_info_map) {
+        if (!populateExportedFrameInfoMap(link.second)) {
+            return;
+        }
+    }
+    for (const auto& frame : exported_frame_info_map) {
+        if (!frame.second.resolved) {
             throw std::runtime_error("Unresolved frame: " + frame.second.cad_frame_name + " on " + frame.second.frameReferenceLink);
+        }
+    }
 
     // Joint rename keys always use CAD occurrence names, independent of link
     // aliases. The CSV and sensors use the final renamed joint names.
@@ -334,12 +358,14 @@ void Creo2Urdf::runExport() {
         const auto& p = parent->second;
         const auto& c = child->second;
         const auto legacyName = p.cad_model_name + "--" + c.cad_model_name;
-        const auto cadName = cadJointName(info.parent_link_id, info.child_link_id, compID_inventoryCADName_map);
-        if (cadName != legacyName && config["rename"][legacyName].IsDefined())
+        const auto cadName = p.inventory_cad_name + "--" + c.inventory_cad_name;
+        if (cadName != legacyName && config["rename"][legacyName].IsDefined()) {
             throw std::runtime_error("Ambiguous joint rename: " + legacyName + "; use CAD occurrence names, e.g. " + cadName);
+        }
         const auto name = getRenameElementFromConfig(cadName);
-        if (!namedJoints.emplace(name, info).second)
+        if (!namedJoints.emplace(name, info).second) {
             throw std::runtime_error("Duplicate joint name: " + name);
+        }
     }
     joint_info_map = std::move(namedJoints);
     // Now we have to add joints to the iDynTree model
@@ -507,10 +533,11 @@ void Creo2Urdf::runExport() {
         export_options.numericalPrecision = urdfNumericalPrecision;
     }
 
-    if (config["root"].IsDefined())
+    if (config["root"].IsDefined()) {
         export_options.baseLink = config["root"].Scalar();
-    else
+    } else {
         export_options.baseLink = "root_link";
+    }
 
     // Add FTs and other sensors as XML blobs for now
 
@@ -545,7 +572,9 @@ void Creo2Urdf::runExport() {
 bool Creo2Urdf::setJointParametersFromCsv(const rapidcsv::Document& csv, const std::string& joint_name, 
     iDynTree::IJoint& joint, double conversion_factor = 1.0)
 {
-    if (csv.GetRowIdx(joint_name) < 0) return false;
+    if (csv.GetRowIdx(joint_name) < 0) {
+        return false;
+    }
 
     double min = csv.GetCell<double>("lower_limit", joint_name) * conversion_factor;
     double max = csv.GetCell<double>("upper_limit", joint_name) * conversion_factor;
@@ -674,42 +703,70 @@ iDynTree::SpatialInertia Creo2Urdf::computeSpatialInertiafromCreo(pfcMassPropert
 bool Creo2Urdf::resolveOccurrenceNames() {
     std::map<ComponentId, std::string> aliases;
     std::map<std::string, std::string> renames;
-    for (const auto& entry : config["rename"])
+    for (const auto& entry : config["rename"]) {
         renames.emplace(entry.first.as<std::string>(), entry.second.as<std::string>());
-    if (config["componentNames"] && !config["componentNames"].IsSequence())
+    }
+    if (config["componentNames"] && !config["componentNames"].IsSequence()) {
         throw std::runtime_error("componentNames must be a sequence");
+    }
     for (const auto& entry : config["componentNames"]) {
         const auto id = entry["path"].as<ComponentId>();
         if (id.empty() || std::any_of(id.begin(), id.end(), [](int v) { return v < 0; }) ||
-            !aliases.emplace(id, entry["name"].as<std::string>()).second)
+            !aliases.emplace(id, entry["name"].as<std::string>()).second) {
             throw std::runtime_error("Invalid or repeated componentNames path: " + componentIdString(id));
+        }
     }
     // Write the inventory even if aliases fail validation, so paths can be corrected.
     YAML::Emitter inventory;
     inventory << YAML::BeginSeq;
+    // Temporary input for the SDK-independent naming helpers; persistent names
+    // live only in LinkInfo, alongside the occurrence's handle and transforms.
+    std::map<ComponentId, std::string> compID_origCADName_map;
+    for (const auto& component : link_info_map) {
+        compID_origCADName_map.emplace(component.first, component.second.cad_model_name);
+    }
     for (const auto& model : compID_origCADName_map) {
         inventory << YAML::BeginMap << YAML::Key << "path" << YAML::Value << YAML::Flow << model.first
                   << YAML::Key << "model" << YAML::Value << model.second << YAML::EndMap;
     }
     inventory << YAML::EndSeq;
     const auto inventoryPath = m_output_path + "\\component-inventory.yaml";
-    { std::ofstream file(inventoryPath); file << inventory.c_str();
-      if (!file) throw std::runtime_error("Cannot write component inventory"); }
-    compID_URDFName_map = resolveComponentNames(compID_origCADName_map, aliases, renames);
-    compID_inventoryCADName_map = resolveCadComponentNames(compID_origCADName_map);
+    {
+        std::ofstream file(inventoryPath);
+        file << inventory.c_str();
+        if (!file) {
+            throw std::runtime_error("Cannot write component inventory");
+        }
+    }
+    const auto compID_URDFName_map = resolveComponentNames(compID_origCADName_map, aliases, renames);
+    const auto compID_inventoryCADName_map = resolveCadComponentNames(compID_origCADName_map);
+    for (auto& component : link_info_map) {
+        component.second.name = compID_URDFName_map.at(component.first);
+        component.second.inventory_cad_name = compID_inventoryCADName_map.at(component.first);
+    }
     const auto requireLink = [&](const std::string& name) {
-        for (const auto& entry : compID_URDFName_map) if (entry.second == name) return;
+        for (const auto& entry : link_info_map) {
+            if (entry.second.name == name) {
+                return;
+            }
+        }
         throw std::runtime_error("Unknown or ambiguous URDF link: " + name + "; see component-inventory.yaml and componentNames");
     };
-    if (config["root"]) requireLink(config["root"].as<std::string>());
-    for (const auto& frame : config["linkFrames"]) requireLink(frame["linkName"].as<std::string>());
+    if (config["root"]) {
+        requireLink(config["root"].as<std::string>());
+    }
+    for (const auto& frame : config["linkFrames"]) {
+        requireLink(frame["linkName"].as<std::string>());
+    }
     YAML::Emitter namedInventory;
     namedInventory << YAML::BeginSeq;
-    for (const auto& model : compID_origCADName_map)
-        namedInventory << YAML::BeginMap << YAML::Key << "path" << YAML::Value << YAML::Flow << model.first
-                       << YAML::Key << "model" << YAML::Value << model.second
-                       << YAML::Key << "cadName" << YAML::Value << compID_inventoryCADName_map.at(model.first)
-                       << YAML::Key << "name" << YAML::Value << compID_URDFName_map.at(model.first) << YAML::EndMap;
+    for (const auto& component : link_info_map) {
+        const auto& link = component.second;
+        namedInventory << YAML::BeginMap << YAML::Key << "path" << YAML::Value << YAML::Flow << component.first
+                       << YAML::Key << "model" << YAML::Value << link.cad_model_name
+                       << YAML::Key << "cadName" << YAML::Value << link.inventory_cad_name
+                       << YAML::Key << "name" << YAML::Value << link.name << YAML::EndMap;
+    }
     namedInventory << YAML::EndSeq;
     std::ofstream file(inventoryPath);
     file << namedInventory.c_str();
@@ -721,31 +778,43 @@ bool Creo2Urdf::populateExportedFrameInfoMap(const LinkInfo& link) {
         auto csys = link.modelhdl->ListItems(pfcITEM_COORD_SYS);
         for (int i = 0; i < csys->getarraysize(); ++i) {
             const std::string name = csys->get(i)->GetName();
-            if (name.find("SCSYS") == std::string::npos) continue;
+            if (name.find("SCSYS") == std::string::npos) {
+                continue;
+            }
             size_t count = 0;
             for (const auto& other : link_info_map) {
                 auto frames = other.second.modelhdl->ListItems(pfcITEM_COORD_SYS);
-                for (int j = 0; j < frames->getarraysize(); ++j)
-                    if (std::string(frames->get(j)->GetName()) == name) ++count;
+                for (int j = 0; j < frames->getarraysize(); ++j) {
+                    if (std::string(frames->get(j)->GetName()) == name) {
+                        ++count;
+                    }
+                }
             }
             ExportedFrameInfo frame;
             frame.cad_frame_name = name;
             frame.frameReferenceLink = link.name;
             frame.exportedFrameName = count > 1 ? name + "_" + componentIdString(link.id) : name;
             if (idyn_model.getLinkIndex(frame.exportedFrameName) != iDynTree::LINK_INVALID_INDEX ||
-                !exported_frame_info_map.emplace(frame.exportedFrameName, frame).second)
+                !exported_frame_info_map.emplace(frame.exportedFrameName, frame).second) {
                 throw std::runtime_error("Duplicate exported frame: " + frame.exportedFrameName);
+            }
         }
     }
     for (auto& entry : exported_frame_info_map) {
         auto& frame = entry.second;
-        if (frame.frameReferenceLink != link.name) continue;
+        if (frame.frameReferenceLink != link.name) {
+            continue;
+        }
         bool ok;
         iDynTree::Transform part_H_frame, part_H_link;
         std::tie(ok, part_H_frame) = getTransformFromPart(link.modelhdl, frame.cad_frame_name, scale);
-        if (!ok) return false;
+        if (!ok) {
+            return false;
+        }
         std::tie(ok, part_H_link) = getTransformFromPart(link.modelhdl, link.link_frame_name, scale);
-        if (!ok) return false;
+        if (!ok) {
+            return false;
+        }
         frame.linkFrame_H_additionalFrame = part_H_link.inverse() * part_H_frame;
         frame.resolved = true;
     }
@@ -797,34 +866,45 @@ void Creo2Urdf::readAssignedCollisionGeometryFromConfig() {
 }
 
 void Creo2Urdf::readExportedFramesFromConfig() {
-    if (!config["exportedFrames"] || exportAllUseradded) return;
+    if (!config["exportedFrames"] || exportAllUseradded) {
+        return;
+    }
     for (const auto& ef : config["exportedFrames"]) {
         ExportedFrameInfo frame;
         frame.cad_frame_name = ef["frameName"].as<std::string>();
         frame.exportedFrameName = ef["exportedFrameName"].as<std::string>();
         const auto reference = ef["frameReferenceLink"].as<std::string>("");
         size_t matches = 0;
-        for (const auto& component : compID_URDFName_map) {
-            if (!reference.empty() && reference != component.second) continue;
-            auto csys = compID_modelhdl_map.at(component.first)->ListItems(pfcITEM_COORD_SYS);
+        for (const auto& component : link_info_map) {
+            const auto& link = component.second;
+            if (!reference.empty() && reference != link.name) {
+                continue;
+            }
+            auto csys = link.modelhdl->ListItems(pfcITEM_COORD_SYS);
             for (int i = 0; i < csys->getarraysize(); ++i) {
-                if (std::string(csys->get(i)->GetName()) != frame.cad_frame_name) continue;
-                frame.frameReferenceLink = component.second;
+                if (std::string(csys->get(i)->GetName()) != frame.cad_frame_name) {
+                    continue;
+                }
+                frame.frameReferenceLink = link.name;
                 ++matches;
             }
         }
-        if (matches != 1)
+        if (matches != 1) {
             throw std::runtime_error("Missing or ambiguous frame " + frame.cad_frame_name + "; specify frameReferenceLink using a URDF link name");
+        }
         if (ef["additionalTransformation"]) {
             const auto values = ef["additionalTransformation"].as<std::array<double, 6>>();
             frame.additionalTransformation.setPosition({values[0], values[1], values[2]});
             frame.additionalTransformation.setRotation(iDynTree::Rotation::RPY(values[3], values[4], values[5]));
         }
-        for (const auto& component : compID_URDFName_map)
-            if (component.second == frame.exportedFrameName)
+        for (const auto& component : link_info_map) {
+            if (component.second.name == frame.exportedFrameName) {
                 throw std::runtime_error("Frame name collides with link: " + frame.exportedFrameName);
-        if (frame.exportedFrameName.empty() || !exported_frame_info_map.emplace(frame.exportedFrameName, frame).second)
+            }
+        }
+        if (frame.exportedFrameName.empty() || !exported_frame_info_map.emplace(frame.exportedFrameName, frame).second) {
             throw std::runtime_error("Duplicate or empty exported frame name: " + frame.exportedFrameName);
+        }
     }
 }
 bool Creo2Urdf::addMeshAndExport(const LinkInfo& link)
@@ -847,7 +927,9 @@ bool Creo2Urdf::addMeshAndExport(const LinkInfo& link)
     {
         const auto remove = config["stringToRemoveFromMeshFileName"].Scalar();
         const auto pos = link_name.find(remove);
-        if (pos != std::string::npos) link_name.erase(pos, remove.length());
+        if (pos != std::string::npos) {
+            link_name.erase(pos, remove.length());
+        }
     }
 
     // Make all alphabetic characters lowercase
@@ -891,18 +973,21 @@ bool Creo2Urdf::addMeshAndExport(const LinkInfo& link)
         }
     }
 
-    if (model_counts.at(link.cad_model_name) > 1)
+    if (model_counts.at(link.cad_model_name) > 1) {
         link_name += "_" + componentIdString(link.id);
-    if (file_format.find("%s") == std::string::npos)
+    }
+    if (file_format.find("%s") == std::string::npos) {
         throw std::runtime_error("filenameformat must contain %s");
+    }
     // We assume there is only one of occurrence to replace
     file_format.replace(file_format.find("%s"), 2, link_name); // 2 is sizeof %s, in this way we keep the formatting extension
 
     const auto basename = file_format.substr(file_format.find_last_of("/\\") + 1);
     std::string collisionKey = basename;
     std::transform(collisionKey.begin(), collisionKey.end(), collisionKey.begin(), [](unsigned char c) { return std::tolower(c); });
-    if (!mesh_file_names.insert(collisionKey).second)
+    if (!mesh_file_names.insert(collisionKey).second) {
         throw std::runtime_error("Duplicate mesh file name: " + basename);
+    }
     if (export_mesh)
     {
         const std::string mesh_file_name = m_output_path + "\\" + basename;
@@ -952,8 +1037,9 @@ bool Creo2Urdf::addMeshAndExport(const LinkInfo& link)
 
     if(config["assignedColors"][renamed_link_name].IsDefined())
     {
-        for (size_t i = 0; i < config["assignedColors"][renamed_link_name].size(); i++)
+        for (size_t i = 0; i < config["assignedColors"][renamed_link_name].size(); i++) {
             color(i) = config["assignedColors"][renamed_link_name][i].as<double>();
+        }
     } 
     else
     {

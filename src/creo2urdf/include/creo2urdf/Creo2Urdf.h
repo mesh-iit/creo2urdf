@@ -127,20 +127,17 @@ private:
     bool processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, iDynTree::Transform parentAsm_H_csysAsm = iDynTree::Transform::Identity(), ComponentId ownerId = {}, bool collectOnly = false);
     /**
      * @brief Resolves CAD occurrence names and final URDF link names from the collected parts and YAML configuration.
-     * Populates compID_URDFName_map and compID_inventoryCADName_map, validates root and linkFrames
+     * Populates each LinkInfo's name and inventory_cad_name, validates root and linkFrames
      * link references, and writes component-inventory.yaml in the output directory.
      * A preliminary path/model inventory is written after parsing naming options and
      * before resolving names, so it remains available if name resolution fails.
-     * @pre compID_origCADName_map contains the part occurrences collected for this export.
+     * @pre link_info_map contains the part occurrences, original CAD names and model handles collected for this export.
      * @return True if the final inventory was written successfully; false on a final inventory write failure.
      * @throws std::runtime_error If naming options or link references are invalid,
      * names are ambiguous or duplicated, or the preliminary inventory cannot be written.
      * @throws YAML::Exception If configuration values cannot be converted to the expected types.
      */
     bool resolveOccurrenceNames();
-    std::map<ComponentId, std::string> compID_origCADName_map; ///< Part occurrence path to original CAD model full name; excludes assemblies and skeletons.
-    std::map<ComponentId, std::string> compID_URDFName_map; ///< Part occurrence path to final URDF link name after applying componentNames, rename and automatic naming.
-    std::map<ComponentId, std::string> compID_inventoryCADName_map; ///< Part occurrence path to unique CAD occurrence name used in the inventory and joint keys, independently of URDF aliases.
     std::map<ComponentId, pfcModel_ptr> compID_modelhdl_map; ///< Occurrence path to Creo model handle for reference validation; includes the root at the empty path, subassemblies, parts and excluded skeletons.
     std::map<std::string, size_t> model_counts; ///< Original CAD model full name to number of collected part occurrences; determines whether mesh names need path suffixes.
     std::set<std::string> mesh_file_names; ///< Lowercase mesh basenames already assigned in this export, used to reject filename collisions even when mesh export is disabled.
@@ -157,7 +154,12 @@ private:
 
     iDynTree::Model idyn_model; /**< The iDynTree model representing the mechanism tree. */
     std::map<std::string, JointInfo> joint_info_map; /**< Map storing information about joints. */
-    std::map<ComponentId, LinkInfo> link_info_map; /**< Map storing information about links. */
+    /**
+     * @brief Single record per exported part occurrence, containing all CAD/URDF names, the model handle and link geometry.
+     * Collection initializes identity and model data; name resolution assigns final names;
+     * the export traversal fills frames and transforms in place. Assemblies and skeletons are excluded.
+     */
+    std::map<ComponentId, LinkInfo> link_info_map;
     std::map<std::string, ExportedFrameInfo> exported_frame_info_map; /**< Map storing information about exported frames. */
     std::map<std::string, std::array<double,3>> assigned_inertias_map; /**< Map storing assigned inertias. 0 -> xx, 1 -> yy, 2 -> zz. */
     std::map<std::string, CollisionGeometryInfo> assigned_collision_geometry_map; /**< Map storing assigned collision geometries. */

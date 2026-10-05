@@ -2,7 +2,9 @@
 #include <iostream>
 
 static void check(bool condition, const char* message) {
-    if (!condition) throw std::runtime_error(message);
+    if (!condition) {
+        throw std::runtime_error(message);
+    }
 }
 
 template<class Function> void rejects(Function function, const char* message) {

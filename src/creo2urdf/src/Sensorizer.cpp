@@ -12,8 +12,9 @@
 void Sensorizer::readSensorsFromConfig(const YAML::Node & config)
 {
     m_config = config;
-    if (!config["sensors"].IsDefined())
+    if (!config["sensors"].IsDefined()) {
         return;
+    }
 
     for (const auto& s : config["sensors"]) {
 
@@ -117,7 +118,11 @@ void Sensorizer::readFTSensorsFromConfig(const YAML::Node& config)
 
 namespace {
 const LinkInfo& sensorLink(const std::map<ComponentId, LinkInfo>& links, const std::string& name) {
-    for (const auto& link : links) if (link.second.name == name) return link.second;
+    for (const auto& link : links) {
+        if (link.second.name == name) {
+            return link.second;
+        }
+    }
     throw std::runtime_error("Unknown sensor reference link: " + name);
 }
 
@@ -125,16 +130,24 @@ iDynTree::Transform sensorWorldFrame(const std::map<std::string, ExportedFrameIn
     const std::map<ComponentId, LinkInfo>& links, const std::string& frameName,
     const std::string& referenceName, const std::array<double, 3>& scale) {
     // An empty frame selects the reference link frame, without a datum lookup.
-    if (frameName.empty()) return sensorLink(links, referenceName).rootAsm_H_linkFrame;
+    if (frameName.empty()) {
+        return sensorLink(links, referenceName).rootAsm_H_linkFrame;
+    }
     const ExportedFrameInfo* match = nullptr;
     auto named = frames.find(frameName);
-    if (named != frames.end() && (referenceName.empty() || named->second.frameReferenceLink == referenceName))
+    if (named != frames.end() && (referenceName.empty() || named->second.frameReferenceLink == referenceName)) {
         match = &named->second;
-    else for (const auto& entry : frames) {
-        const auto& frame = entry.second;
-        if (frame.cad_frame_name != frameName || (!referenceName.empty() && frame.frameReferenceLink != referenceName)) continue;
-        if (match) throw std::runtime_error("Ambiguous sensor frame: " + frameName + "; use its exported name");
-        match = &frame;
+    } else {
+        for (const auto& entry : frames) {
+            const auto& frame = entry.second;
+            if (frame.cad_frame_name != frameName || (!referenceName.empty() && frame.frameReferenceLink != referenceName)) {
+                continue;
+            }
+            if (match) {
+                throw std::runtime_error("Ambiguous sensor frame: " + frameName + "; use its exported name");
+            }
+            match = &frame;
+        }
     }
     if (match) {
         const auto& reference = sensorLink(links, match->frameReferenceLink);
@@ -144,9 +157,13 @@ iDynTree::Transform sensorWorldFrame(const std::map<std::string, ExportedFrameIn
     bool ok;
     iDynTree::Transform part_H_frame, part_H_link;
     std::tie(ok, part_H_frame) = getTransformFromPart(reference.modelhdl, frameName, scale);
-    if (!ok) throw std::runtime_error("Missing sensor frame " + frameName + " on " + referenceName);
+    if (!ok) {
+        throw std::runtime_error("Missing sensor frame " + frameName + " on " + referenceName);
+    }
     std::tie(ok, part_H_link) = getTransformFromPart(reference.modelhdl, reference.link_frame_name, scale);
-    if (!ok) throw std::runtime_error("Missing link frame on " + referenceName);
+    if (!ok) {
+        throw std::runtime_error("Missing link frame on " + referenceName);
+    }
     return reference.rootAsm_H_linkFrame * part_H_link.inverse() * part_H_frame;
 }
 }
@@ -156,7 +173,9 @@ void Sensorizer::assignTransformToFTSensor(const std::map<std::string, ExportedF
     const std::array<double, 3> scale) {
     for (auto& entry : ft_sensors) {
         const auto joint = joints.find(entry.first);
-        if (joint == joints.end()) throw std::runtime_error("Unknown FT sensor joint: " + entry.first);
+        if (joint == joints.end()) {
+            throw std::runtime_error("Unknown FT sensor joint: " + entry.first);
+        }
         auto& sensor = entry.second;
         const auto& parent = links.at(joint->second.parent_link_id);
         const auto& child = links.at(joint->second.child_link_id);
@@ -212,8 +231,9 @@ std::vector<std::string> Sensorizer::buildFTXMLBlobs()
 
             xmlParseInNodeContext(node, blob.c_str(), blob.size(), 0, &node_xmlblob);
 
-            if (node_xmlblob)
+            if (node_xmlblob) {
                 xmlAddChild(node, node_xmlblob);
+            }
         }
 
         xmlOutputBufferPtr gazebo_doc_buffer = xmlAllocOutputBuffer(NULL);
@@ -304,8 +324,9 @@ std::vector<std::string> Sensorizer::buildSensorsXMLBlobs()
 
             xmlParseInNodeContext(node, blob.c_str(), blob.size(), 0, &node_xmlblob);
 
-            if (node_xmlblob)
+            if (node_xmlblob) {
                 xmlAddChild(node, node_xmlblob);
+            }
         }
 
         xmlOutputBufferPtr doc_buffer = xmlAllocOutputBuffer(NULL);

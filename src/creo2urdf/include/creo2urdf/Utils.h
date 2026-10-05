@@ -272,16 +272,20 @@ struct JointInfo {
 };
 
 /**
- * @brief Information about a link, including its name, model handle, transformation, and frame name.
+ * @brief Names, model handle and geometry of one exported part occurrence.
+ * Identity and model data are collected first; URDF and inventory names are then
+ * resolved before the export traversal completes the frames and transforms.
+ * Assemblies and excluded skeletons are not represented as LinkInfo records.
  */
 struct LinkInfo {
     ComponentId id; ///< Complete component feature-ID path from the exported root assembly, identifying this part occurrence.
     std::string cad_model_name; ///< Original Creo model full name, without occurrence suffixes or URDF renames; shared by repeated instances.
-    std::string name{""}; ///< Name of the link.
+    std::string name{""}; ///< Final URDF link name after componentNames, rename and automatic naming have been applied.
     pfcModel_ptr modelhdl{nullptr}; ///< Pointer to the Creo model associated with the link.
     iDynTree::Transform rootAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the root to the link's reference frame.
     iDynTree::Transform csysAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the assembly to the link's reference frame.
     std::string link_frame_name{""}; ///< Name of the link frame.
+    std::string inventory_cad_name; ///< Unique CAD occurrence name used by the inventory and joint rename keys, independently of the URDF name.
 };
 
 /**
@@ -352,8 +356,11 @@ private:
 template <class T>
 T stringToEnum(const std::map<T, std::string> & map, const std::string & s)
 {
-    for (auto& t : map)
-        if (t.second == s) return t.first;
+    for (auto& t : map) {
+        if (t.second == s) {
+            return t.first;
+        }
+    }
 
     return static_cast<T>(-1);
 }

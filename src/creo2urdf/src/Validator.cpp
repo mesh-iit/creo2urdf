@@ -53,8 +53,9 @@ bool Validator::assignCreoTransformToLink() {
 
         ret = true;
 
-        if (!ret)
+        if (!ret) {
             return ret;
+        }
 
         link_name_to_creo_computed_trf_map[link_child_name] = H_child;
     }
