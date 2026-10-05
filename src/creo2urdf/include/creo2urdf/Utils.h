@@ -180,6 +180,11 @@ struct SensorInfo {
     SensorType type{ SensorType::None };        ///< Type of the sensor.
     double updateRate{ 100 };                   ///< Update rate of the sensor.
     std::vector<std::string> xmlBlobs;          ///< Additional XML blobs that can be appended to the XML tree.
+    /**
+     * @brief Final URDF name of the link occurrence used to resolve frameName.
+     * Defaults to linkName when omitted from YAML. An empty frameName selects
+     * this link's reference frame instead of a CAD datum.
+     */
     std::string frameReferenceLink;
 };
 
@@ -197,6 +202,12 @@ struct FTSensorInfo {
     iDynTree::Transform child_link_H_sensor{iDynTree::Transform::Identity()}; ///< 3D transform from child link to sensor.
     bool exportFrameInURDF{false}; ///< Flag indicating whether to export the frame in URDF.
     std::vector<std::string> xmlBlobs; ///< Vector of XML blobs that can be appended to the XML tree.
+    /**
+     * @brief Final URDF name of the link occurrence used to resolve frameName.
+     * Defaults to linkName when omitted from YAML. If empty during transform
+     * assignment, the joint's child link is used. An empty frameName selects
+     * the chosen link's reference frame instead of a CAD datum.
+     */
     std::string frameReferenceLink;
 };
 
@@ -204,8 +215,8 @@ struct FTSensorInfo {
  * @brief Information about an exported frame.
  */
 struct ExportedFrameInfo {
-    std::string cad_frame_name;
-    bool resolved{false};
+    std::string cad_frame_name; ///< Original CAD coordinate-system name, before export renaming; resolved on frameReferenceLink.
+    bool resolved{false}; ///< True once the CAD and link frames have been found and linkFrame_H_additionalFrame has been computed.
     std::string frameReferenceLink{""}; ///< Link that the frame belongs to.
     std::string exportedFrameName{""}; ///< Name of the exported frame.
     iDynTree::Transform linkFrame_H_additionalFrame{iDynTree::Transform::Identity()}; ///< 3D transform from link frame to additional frame.
@@ -264,8 +275,8 @@ struct JointInfo {
  * @brief Information about a link, including its name, model handle, transformation, and frame name.
  */
 struct LinkInfo {
-    ComponentId id;
-    std::string cad_model_name;
+    ComponentId id; ///< Complete component feature-ID path from the exported root assembly, identifying this part occurrence.
+    std::string cad_model_name; ///< Original Creo model full name, without occurrence suffixes or URDF renames; shared by repeated instances.
     std::string name{""}; ///< Name of the link.
     pfcModel_ptr modelhdl{nullptr}; ///< Pointer to the Creo model associated with the link.
     iDynTree::Transform rootAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the root to the link's reference frame.
