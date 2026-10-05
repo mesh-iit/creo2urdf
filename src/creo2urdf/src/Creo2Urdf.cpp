@@ -738,7 +738,7 @@ bool Creo2Urdf::resolveOccurrenceNames() {
             throw std::runtime_error("Cannot write component inventory");
         }
     }
-    const auto compID_URDFName_map = resolveComponentNames(compID_origCADName_map, aliases, renames);
+    const auto compID_URDFName_map = resolveComponentURDFNames(compID_origCADName_map, aliases, renames);
     const auto compID_inventoryCADName_map = resolveCadComponentNames(compID_origCADName_map);
     for (auto& component : link_info_map) {
         component.second.name = compID_URDFName_map.at(component.first);

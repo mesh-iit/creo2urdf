@@ -6,7 +6,7 @@
 int main() {
     try {
         const std::map<ComponentId, std::string> models{{{40}, "LINK"}, {{75}, "LINK"}};
-        const auto names = resolveComponentNames(models, {{{40}, "root_link"}, {{75}, "moving_link"}}, {});
+        const auto names = resolveComponentURDFNames(models, {{{40}, "root_link"}, {{75}, "moving_link"}}, {});
         iDynTree::Model model;
         iDynTree::Link link;
         for (const auto& occurrence : names) {

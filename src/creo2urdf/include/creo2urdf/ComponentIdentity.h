@@ -109,7 +109,7 @@ inline std::map<ComponentId, std::string> resolveCadComponentNames(const std::ma
  * when an occurrence has no more specific assignment. Ambiguous selectors are
  * rejected before applying aliases, even if all occurrences have aliases.
  */
-inline std::map<ComponentId, std::string> resolveComponentNames(const std::map<ComponentId, std::string>& compID_cadName_map, const std::map<ComponentId, std::string>& compID_URDFCompNames_map, const std::map<std::string, std::string>& renameKey_URDFName_map) {
+inline std::map<ComponentId, std::string> resolveComponentURDFNames(const std::map<ComponentId, std::string>& compID_cadName_map, const std::map<ComponentId, std::string>& compID_URDFCompNames_map, const std::map<std::string, std::string>& renameKey_URDFName_map) {
     // Prepare model multiplicities and default CAD occurrence names independently
     // of the user's URDF naming choices.
     std::map<std::string, size_t> cadName_occurrenceCount_map;
