@@ -517,6 +517,19 @@ bool Creo2Urdf::setJointParametersFromCsv(const rapidcsv::Document& csv, const s
     joint.setDamping(0, csv.GetCell<double>("damping", joint_name));
     joint.setStaticFriction(0, csv.GetCell<double>("friction", joint_name));
 
+    // Angular velocity, like position, is specified in degrees in the CSV.
+    // Effort is already expressed in URDF units and needs no conversion.
+    if (csv.GetColumnIdx("velocity_limit") >= 0)
+    {
+        joint.setVelocityLimit(0, csv.GetCell<double>("velocity_limit", joint_name) * conversion_factor);
+        joint.enableVelocityLimits(true);
+    }
+    if (csv.GetColumnIdx("effort_limit") >= 0)
+    {
+        joint.setEffortLimit(0, csv.GetCell<double>("effort_limit", joint_name));
+        joint.enableEffortLimits(true);
+    }
+
     return true;
 }
 
