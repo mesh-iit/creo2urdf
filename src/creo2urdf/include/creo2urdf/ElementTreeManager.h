@@ -46,25 +46,27 @@ public:
      */
     ElementTreeManager();
 
-    /**
-     * @brief Constructor for ElementTreeManager that extracts the element tree from the part and builds the joint info map.
-     * @param[in] feat A pointer to a part casted as feature.
-     * @param[out] joint_info_map A map containing joint information.
-     */
-    ElementTreeManager(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map);
-
-    /**
+/**
      * @brief Destructor for ElementTreeManager.
      */
     ~ElementTreeManager();
 
     /**
-     * @brief Populates joint information from the given ElementTree.
-     * @param[in] feat A pointer to a part casted as feature.
-     * @param[out] joint_info_map A map containing joint information.
-     * @return True if successful, false otherwise.
+     * @brief Extracts a component feature's element tree and appends its joint information.
+     * @param[in] feat Component feature whose placement constraints define the joint.
+     * @param[in,out] joint_info_map Joint information indexed by the serialized component
+     * feature path; existing entries are preserved and duplicate keys are rejected.
+     * @param[in] ownerId Path from the exported root to the assembly owning feat,
+     * excluding feat's own ID. An empty path identifies the root assembly.
+     * @param[in] contexts Map from root-relative occurrence paths to Creo model handles,
+     * including the root at the empty path, subassemblies, parts and excluded skeletons.
+     * Used to normalize and validate constraint reference paths.
+     * @return True if a joint was inserted; false if the tree type is invalid,
+     * no usable reference pair exists, a skeleton is referenced or the joint type is unsupported.
+     * @throws std::runtime_error If references are invalid or ambiguous, multiple
+     * link pairs or constraint sets are found, or the joint occurrence already exists.
      */
-    bool populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map);
+    bool populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map, const ComponentId& ownerId, const std::map<ComponentId, pfcModel_ptr>& contexts);
 
     /**
      * @brief Gets the constraint type between two assembled parts.
@@ -72,23 +74,10 @@ public:
      */
     int getConstraintType();
 
-    /**
-     * @brief Gets the name of the parent element of the two assembled parts.
-     * @return The name of the parent element.
-     */
-    std::string getParentName();
-
-    /**
-     * @brief Gets the name of the child  of the two assembled parts.
-     * @return The name of the child element.
-     */
-    std::string getChildName();
-
 private:
     wfcElementTree_ptr tree{ nullptr }; ///< Pointer to the ElementTree of the part as feature.
     wfcWFeature_ptr wfeat{ nullptr };   ///< Pointer to the part as feature.
-    pfcSolid_ptr parent_solid{ nullptr };         ///< Pointer to the parent solid.
-    pfcSolid_ptr child_solid{ nullptr };          ///< Pointer to the child solid.
+    pfcComponentConstraints_ptr constraints{ nullptr }; ///< Constraints in the owning occurrence's context.
 
     /*
      * @brief Retrieves the name of a common datum for the given model item type.
@@ -109,10 +98,21 @@ private:
     std::string getConstraintDatum(pfcFeature_ptr feat, pfcComponentConstraintType constraint_type, pfcModelItemType datum_type);
 
     /**
-     * @brief Retrieves references to the parent and child solids. We assume there are only two parts and they are named differently.
-     * @return True if successful, false otherwise.
+     * @brief Resolves the constraint selections to parent and child occurrences.
+     * @param[in] ownerId Root-relative path to the assembly owning wfeat, excluding
+     * the component feature's own ID; empty for the exported root assembly.
+     * @param[in] contexts Occurrence-path-to-model map containing the root at the
+     * empty path and the collected assembly, part and skeleton handles. Reference
+     * roots are matched along the feature's ancestry and leaf models are validated.
+     * @return True if parent_id and child_id identify a usable reference pair;
+     * false if no usable constraints exist or a reference belongs to a skeleton.
+     * @throws std::runtime_error If reference paths cannot be resolved, both endpoints
+     * identify the same occurrence or constraints identify different link pairs.
+     * @note Stores the constraints in the owning assembly occurrence's context for
+     * subsequent datum lookup. Parent and child IDs are valid only on success.
      */
-    bool retrieveSolidReferences();
+    bool retrieveSolidReferences(const ComponentId& ownerId, const std::map<ComponentId, pfcModel_ptr>& contexts);
+    ComponentId parent_id, child_id;
 
     /**
      * @brief Retrieves the name of the part associated with the ElementTree.

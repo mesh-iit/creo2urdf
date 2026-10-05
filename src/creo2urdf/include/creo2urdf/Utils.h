@@ -16,6 +16,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <creo2urdf/ComponentIdentity.h>
 #include <cmath>
 #include <string>
 #include <array>
@@ -179,6 +180,12 @@ struct SensorInfo {
     SensorType type{ SensorType::None };        ///< Type of the sensor.
     double updateRate{ 100 };                   ///< Update rate of the sensor.
     std::vector<std::string> xmlBlobs;          ///< Additional XML blobs that can be appended to the XML tree.
+    /**
+     * @brief Final URDF name of the link occurrence used to resolve frameName.
+     * Defaults to linkName when omitted from YAML. An empty frameName selects
+     * this link's reference frame instead of a CAD datum.
+     */
+    std::string frameReferenceLink;
 };
 
 /**
@@ -195,12 +202,21 @@ struct FTSensorInfo {
     iDynTree::Transform child_link_H_sensor{iDynTree::Transform::Identity()}; ///< 3D transform from child link to sensor.
     bool exportFrameInURDF{false}; ///< Flag indicating whether to export the frame in URDF.
     std::vector<std::string> xmlBlobs; ///< Vector of XML blobs that can be appended to the XML tree.
+    /**
+     * @brief Final URDF name of the link occurrence used to resolve frameName.
+     * Defaults to linkName when omitted from YAML. If empty during transform
+     * assignment, the joint's child link is used. An empty frameName selects
+     * the chosen link's reference frame instead of a CAD datum.
+     */
+    std::string frameReferenceLink;
 };
 
 /**
  * @brief Information about an exported frame.
  */
 struct ExportedFrameInfo {
+    std::string cad_frame_name; ///< Original CAD coordinate-system name, before export renaming; resolved on frameReferenceLink.
+    bool resolved{false}; ///< True once the CAD and link frames have been found and linkFrame_H_additionalFrame has been computed.
     std::string frameReferenceLink{""}; ///< Link that the frame belongs to.
     std::string exportedFrameName{""}; ///< Name of the exported frame.
     iDynTree::Transform linkFrame_H_additionalFrame{iDynTree::Transform::Identity()}; ///< 3D transform from link frame to additional frame.
@@ -234,8 +250,8 @@ enum class JointType {
  */
 struct JointInfo {
     std::string datum_name{""}; ///< Name of the joint's associated datum (axis for revolute, csys for fixed).
-    std::string parent_link_name{""}; ///< Name of the parent link connected to the joint.
-    std::string child_link_name{""}; ///< Name of the child link connected to the joint.
+    ComponentId parent_link_id; ///< Occurrence of the parent link connected to the joint.
+    ComponentId child_link_id; ///< Occurrence of the child link connected to the joint.
     JointType type{JointType::None}; ///< Type of the joint (default is none).
 
     /**
@@ -256,14 +272,20 @@ struct JointInfo {
 };
 
 /**
- * @brief Information about a link, including its name, model handle, transformation, and frame name.
+ * @brief Names, model handle and geometry of one exported part occurrence.
+ * Identity and model data are collected first; URDF and inventory names are then
+ * resolved before the export traversal completes the frames and transforms.
+ * Assemblies and excluded skeletons are not represented as LinkInfo records.
  */
 struct LinkInfo {
-    std::string name{""}; ///< Name of the link.
+    ComponentId id; ///< Complete component feature-ID path from the exported root assembly, identifying this part occurrence.
+    std::string cad_model_name; ///< Original Creo model full name, without occurrence suffixes or URDF renames; shared by repeated instances.
+    std::string name{""}; ///< Final URDF link name after componentNames, rename and automatic naming have been applied.
     pfcModel_ptr modelhdl{nullptr}; ///< Pointer to the Creo model associated with the link.
     iDynTree::Transform rootAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the root to the link's reference frame.
     iDynTree::Transform csysAsm_H_linkFrame{iDynTree::Transform::Identity()}; ///< 3D Transform from the assembly to the link's reference frame.
     std::string link_frame_name{""}; ///< Name of the link frame.
+    std::string inventory_cad_name; ///< Unique CAD occurrence name used by the inventory and joint rename keys, independently of the URDF name.
 };
 
 /**
@@ -334,8 +356,11 @@ private:
 template <class T>
 T stringToEnum(const std::map<T, std::string> & map, const std::string & s)
 {
-    for (auto& t : map)
-        if (t.second == s) return t.first;
+    for (auto& t : map) {
+        if (t.second == s) {
+            return t.first;
+        }
+    }
 
     return static_cast<T>(-1);
 }

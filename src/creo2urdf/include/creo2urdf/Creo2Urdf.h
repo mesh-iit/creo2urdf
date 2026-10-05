@@ -69,6 +69,7 @@ public:
                                                                                                                                        m_root_asm_model_ptr(asm_model_ptr) { }
 
 private:
+    void runExport();
     /**
      * @brief Export the iDynTree model to URDF format if it is valid.
      * @param mdl The iDynTree model to be exported.
@@ -89,10 +90,10 @@ private:
     iDynTree::SpatialInertia computeSpatialInertiafromCreo(pfcMassProperty_ptr mass_prop, iDynTree::Transform H, const std::string& link_name);
 
     /**
-     * @brief Populate the exported frame information map from the Creo model handle.
-     * @param modelhdl The Creo model handle.
+     * @brief Populate frame transforms for one component occurrence.
+     * @param link The occurrence and its resolved URDF name.
      */
-    void populateExportedFrameInfoMap(pfcModel_ptr modelhdl);
+    bool populateExportedFrameInfoMap(const LinkInfo& link);
 
     /**
      * @brief Read assigned inertias from the loaded YAML configuration.
@@ -111,11 +112,10 @@ private:
 
     /**
      * @brief Creates a mesh file from the Creo model in the form defined in the configuration file.
-     * @param component_handle The part as a Creo model.
-     * @param mesh_transform The 3D transform associated to the mesh.
+     * @param link The occurrence owning the mesh and its export coordinate system.
      * @return True if successful, false otherwise.
      */
-    bool addMeshAndExport(pfcModel_ptr component_handle, const std::string& mesh_transform);
+    bool addMeshAndExport(const LinkInfo& link);
 
     /**
      * @brief Load YAML configuration from a file.
@@ -124,7 +124,23 @@ private:
      */
     bool loadYamlConfig(const std::string& filename);
 
-    bool processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, iDynTree::Transform parentAsm_H_csysAsm = iDynTree::Transform::Identity());
+    bool processAsmItems(pfcModelItems_ptr asmListItems, pfcModel_ptr model_owner, iDynTree::Transform parentAsm_H_csysAsm = iDynTree::Transform::Identity(), ComponentId ownerId = {}, bool collectOnly = false);
+    /**
+     * @brief Resolves CAD occurrence names and final URDF link names from the collected parts and YAML configuration.
+     * Populates each LinkInfo's name and inventory_cad_name, validates root and linkFrames
+     * link references, and writes component-inventory.yaml in the output directory.
+     * A preliminary path/model inventory is written after parsing naming options and
+     * before resolving names, so it remains available if name resolution fails.
+     * @pre link_info_map contains the part occurrences, original CAD names and model handles collected for this export.
+     * @return True if the final inventory was written successfully; false on a final inventory write failure.
+     * @throws std::runtime_error If naming options or link references are invalid,
+     * names are ambiguous or duplicated, or the preliminary inventory cannot be written.
+     * @throws YAML::Exception If configuration values cannot be converted to the expected types.
+     */
+    bool resolveOccurrenceNames();
+    std::map<ComponentId, pfcModel_ptr> compID_modelhdl_map; ///< Occurrence path to Creo model handle for reference validation; includes the root at the empty path, subassemblies, parts and excluded skeletons.
+    std::map<std::string, size_t> model_counts; ///< Original CAD model full name to number of collected part occurrences; determines whether mesh names need path suffixes.
+    std::set<std::string> mesh_file_names; ///< Lowercase mesh basenames already assigned in this export, used to reject filename collisions even when mesh export is disabled.
 
     bool setJointParametersFromCsv(const rapidcsv::Document& csv, const std::string& joint_name, 
         iDynTree::IJoint& joint, double conversion_factor);
@@ -138,7 +154,12 @@ private:
 
     iDynTree::Model idyn_model; /**< The iDynTree model representing the mechanism tree. */
     std::map<std::string, JointInfo> joint_info_map; /**< Map storing information about joints. */
-    std::map<std::string, LinkInfo> link_info_map; /**< Map storing information about links. */
+    /**
+     * @brief Single record per exported part occurrence, containing all CAD/URDF names, the model handle and link geometry.
+     * Collection initializes identity and model data; name resolution assigns final names;
+     * the export traversal fills frames and transforms in place. Assemblies and skeletons are excluded.
+     */
+    std::map<ComponentId, LinkInfo> link_info_map;
     std::map<std::string, ExportedFrameInfo> exported_frame_info_map; /**< Map storing information about exported frames. */
     std::map<std::string, std::array<double,3>> assigned_inertias_map; /**< Map storing assigned inertias. 0 -> xx, 1 -> yy, 2 -> zz. */
     std::map<std::string, CollisionGeometryInfo> assigned_collision_geometry_map; /**< Map storing assigned collision geometries. */

@@ -49,7 +49,7 @@ struct Sensorizer {
      * @param scale The scale for the position part of the 3D transform.
      */
     void assignTransformToFTSensor(const std::map<std::string, ExportedFrameInfo>& exported_frame_info_map,
-                                   const std::map<std::string, LinkInfo>& link_info_map,
+                                   const std::map<ComponentId, LinkInfo>& link_info_map,
                                    const std::map<std::string, JointInfo>& joint_info_map,
                                    const std::array<double, 3> scale);
 
@@ -60,7 +60,7 @@ struct Sensorizer {
      * @param scale The scale for the position part of the 3D transform.
      */
     void assignTransformToSensors(const std::map<std::string, ExportedFrameInfo>& exported_frame_info_map,
-                                  const std::map<std::string, LinkInfo>& link_info_map,
+                                  const std::map<ComponentId, LinkInfo>& link_info_map,
                                   const std::array<double, 3> scale);
 
     /**

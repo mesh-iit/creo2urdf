@@ -305,7 +305,9 @@ std::string extractFolderPath(const std::string& filePath) {
 
 
 void mergeYAMLNodes(YAML::Node& dest, const YAML::Node& src) {
-    if (!src || src.IsNull()) return;
+    if (!src || src.IsNull()) {
+        return;
+    }
 
     // If src is a map
     if (src.IsMap()) {
