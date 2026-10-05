@@ -9,6 +9,7 @@
 
 #include <creo2urdf/Creo2Urdf.h>
 #include <creo2urdf/Utils.h>
+#include <creo2urdf/JointCsv.h>
 #include <pfcExceptions.h>
 
 #include <iDynTree/PrismaticJoint.h>
@@ -519,14 +520,15 @@ bool Creo2Urdf::setJointParametersFromCsv(const rapidcsv::Document& csv, const s
 
     // Angular velocity, like position, is specified in degrees in the CSV.
     // Effort is already expressed in URDF units and needs no conversion.
-    if (csv.GetColumnIdx("velocity_limit") >= 0)
-    {
-        joint.setVelocityLimit(0, csv.GetCell<double>("velocity_limit", joint_name) * conversion_factor);
+    // Optional columns may contain blank cells for individual joints.
+    double velocityLimit = 0.0;
+    if (readOptionalJointCsvNumber(csv, m_csv_path, joint_name, "velocity_limit", velocityLimit)) {
+        joint.setVelocityLimit(0, velocityLimit * conversion_factor);
         joint.enableVelocityLimits(true);
     }
-    if (csv.GetColumnIdx("effort_limit") >= 0)
-    {
-        joint.setEffortLimit(0, csv.GetCell<double>("effort_limit", joint_name));
+    double effortLimit = 0.0;
+    if (readOptionalJointCsvNumber(csv, m_csv_path, joint_name, "effort_limit", effortLimit)) {
+        joint.setEffortLimit(0, effortLimit);
         joint.enableEffortLimits(true);
     }
 

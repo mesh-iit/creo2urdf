@@ -295,6 +295,7 @@ are listed in the following:
 | damping  | No      |  Newton meter seconds / radians    | `damping` of the `dynamics` child element of the URDF `joint`. |
 | friction | No      |  Newton meters    | `friction` of the `dynamics` child element of the URDF `joint`. |
 
+For `velocity_limit` and `effort_limit`, either omit the column or leave a joint's cell empty (or whitespace-only) to leave that limit disabled for that joint. Numeric values, including zero, enable the corresponding limit. Nonempty invalid values cause an export error.
 
 ### Maintainers
 This repository is maintained by:
