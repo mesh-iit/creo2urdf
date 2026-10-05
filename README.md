@@ -290,7 +290,7 @@ are listed in the following:
 | joint_name     |  **Yes**  |      -          | Name of the joint to which the content line is referring |
 | lower_limit    |  No      | Degrees         | `lower` attribute of the `limit` child element of the URDF `joint`. **Please note that we specify this limit here in Degrees, but in the urdf it is expressed in Radians, the plugin will take care of  internally converting this parameter.** |
 | upper_limit    |  No      | Degrees         | `upper` attribute of the `limit` child element of the URDF `joint`. **Please note that we specify this limit here in Degrees, but in the urdf it is expressed in Radians, the plugin will take care of  internally converting this parameter.** |
-| velocity_limit | No      | Radians/second    | `velocity` attribute of the `limit` child element of the URDF `joint`. |
+| velocity_limit | No      | Degrees/second (revolute), meters/second (prismatic) | `velocity` attribute of the `limit` child element of the URDF `joint`. Angular velocity is converted internally from degrees/second to radians/second. |
 | effort_limit | No      |  Newton meters    | `effort` attribute of the `limit` child element of the URDF `joint`.
 | damping  | No      |  Newton meter seconds / radians    | `damping` of the `dynamics` child element of the URDF `joint`. |
 | friction | No      |  Newton meters    | `friction` of the `dynamics` child element of the URDF `joint`. |
