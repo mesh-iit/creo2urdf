@@ -117,7 +117,16 @@ void Sensorizer::readFTSensorsFromConfig(const YAML::Node& config)
 }
 
 namespace {
+/**
+ * @brief Find a sensor's reference link by its final URDF name.
+ * @param links Exported link records indexed by component occurrence paths.
+ * @param name Final URDF link name, after aliases and renames have been applied.
+ * @return Reference to the matching record in links; valid while that record exists.
+ * @throws std::runtime_error If no exported link has the requested name.
+ * @pre Final URDF link names are unique, as validated during name resolution.
+ */
 const LinkInfo& sensorLink(const std::map<ComponentId, LinkInfo>& links, const std::string& name) {
+    // The map is keyed by occurrence path, so resolve the configured name by value.
     for (const auto& link : links) {
         if (link.second.name == name) {
             return link.second;
@@ -126,7 +135,23 @@ const LinkInfo& sensorLink(const std::map<ComponentId, LinkInfo>& links, const s
     throw std::runtime_error("Unknown sensor reference link: " + name);
 }
 
-iDynTree::Transform sensorWorldFrame(const std::map<std::string, ExportedFrameInfo>& frames,
+/**
+ * @brief Resolve a sensor frame and express its pose in the exported root assembly frame.
+ * @param frames Exported frame records keyed by exported name, with resolved link-relative transforms.
+ * @param links Exported link records containing model handles and root-relative link poses.
+ * @param frameName Exported frame name or original CAD coordinate-system name;
+ * an empty string selects the reference link frame itself.
+ * @param referenceName Final URDF name of the link on which to resolve the frame.
+ * An empty name allows a lookup across exported frames, but cannot select a link
+ * for the empty-frame case or the direct CAD lookup fallback.
+ * @param scale Per-axis translation scale used when reading transforms from Creo.
+ * @return rootAsm_H_sensor: transforms sensor-frame coordinates into root assembly coordinates.
+ * @throws std::runtime_error If a reference link is unknown, the CAD-name lookup
+ * matches multiple exported frames, or a required CAD sensor/link frame is missing.
+ * @note Already-resolved exported frame transforms are used directly, including
+ * additionalTransformation; scale is applied only by the direct Creo lookup.
+ */
+iDynTree::Transform sensorRootAsmFrame(const std::map<std::string, ExportedFrameInfo>& frames,
     const std::map<ComponentId, LinkInfo>& links, const std::string& frameName,
     const std::string& referenceName, const std::array<double, 3>& scale) {
     // An empty frame selects the reference link frame, without a datum lookup.
@@ -134,10 +159,13 @@ iDynTree::Transform sensorWorldFrame(const std::map<std::string, ExportedFrameIn
         return sensorLink(links, referenceName).rootAsm_H_linkFrame;
     }
     const ExportedFrameInfo* match = nullptr;
+    // Prefer an exact exported name, provided it belongs to the requested link.
     auto named = frames.find(frameName);
     if (named != frames.end() && (referenceName.empty() || named->second.frameReferenceLink == referenceName)) {
         match = &named->second;
     } else {
+        // Otherwise match the original CAD name, filtering by link when supplied.
+        // Repeated CAD frame names require a unique occurrence or an exported name.
         for (const auto& entry : frames) {
             const auto& frame = entry.second;
             if (frame.cad_frame_name != frameName || (!referenceName.empty() && frame.frameReferenceLink != referenceName)) {
@@ -151,8 +179,11 @@ iDynTree::Transform sensorWorldFrame(const std::map<std::string, ExportedFrameIn
     }
     if (match) {
         const auto& reference = sensorLink(links, match->frameReferenceLink);
+        // Compose the link pose, resolved datum pose and configured frame offset.
         return reference.rootAsm_H_linkFrame * match->linkFrame_H_additionalFrame * match->additionalTransformation;
     }
+    // A datum need not be exported to serve as a sensor frame. Look it up directly
+    // on the selected link's model, together with that link's own CAD frame.
     const auto& reference = sensorLink(links, referenceName);
     bool ok;
     iDynTree::Transform part_H_frame, part_H_link;
@@ -164,6 +195,7 @@ iDynTree::Transform sensorWorldFrame(const std::map<std::string, ExportedFrameIn
     if (!ok) {
         throw std::runtime_error("Missing link frame on " + referenceName);
     }
+    // Convert the datum pose from part coordinates to link coordinates, then to root.
     return reference.rootAsm_H_linkFrame * part_H_link.inverse() * part_H_frame;
 }
 }
@@ -180,9 +212,9 @@ void Sensorizer::assignTransformToFTSensor(const std::map<std::string, ExportedF
         const auto& parent = links.at(joint->second.parent_link_id);
         const auto& child = links.at(joint->second.child_link_id);
         const auto reference = sensor.frameReferenceLink.empty() ? child.name : sensor.frameReferenceLink;
-        const auto world_H_sensor = sensorWorldFrame(frames, links, sensor.frameName, reference, scale);
-        sensor.parent_link_H_sensor = parent.rootAsm_H_linkFrame.inverse() * world_H_sensor;
-        sensor.child_link_H_sensor = child.rootAsm_H_linkFrame.inverse() * world_H_sensor;
+        const auto rootAsm_H_sensor = sensorRootAsmFrame(frames, links, sensor.frameName, reference, scale);
+        sensor.parent_link_H_sensor = parent.rootAsm_H_linkFrame.inverse() * rootAsm_H_sensor;
+        sensor.child_link_H_sensor = child.rootAsm_H_linkFrame.inverse() * rootAsm_H_sensor;
     }
 }
 std::vector<std::string> Sensorizer::buildFTXMLBlobs()
@@ -285,7 +317,7 @@ void Sensorizer::assignTransformToSensors(const std::map<std::string, ExportedFr
     for (auto& sensor : sensors) {
         const auto& target = sensorLink(links, sensor.linkName);
         sensor.transform = target.rootAsm_H_linkFrame.inverse() *
-            sensorWorldFrame(frames, links, sensor.frameName, sensor.frameReferenceLink, scale);
+            sensorRootAsmFrame(frames, links, sensor.frameName, sensor.frameReferenceLink, scale);
     }
 }
 std::vector<std::string> Sensorizer::buildSensorsXMLBlobs()

@@ -138,9 +138,7 @@ private:
      * @throws YAML::Exception If configuration values cannot be converted to the expected types.
      */
     bool resolveOccurrenceNames();
-    std::map<ComponentId, pfcModel_ptr> compID_modelhdl_map; ///< Occurrence path to Creo model handle for reference validation; includes the root at the empty path, subassemblies, parts and excluded skeletons.
-    std::map<std::string, size_t> model_counts; ///< Original CAD model full name to number of collected part occurrences; determines whether mesh names need path suffixes.
-    std::set<std::string> mesh_file_names; ///< Lowercase mesh basenames already assigned in this export, used to reject filename collisions even when mesh export is disabled.
+
 
     bool setJointParametersFromCsv(const rapidcsv::Document& csv, const std::string& joint_name, 
         iDynTree::IJoint& joint, double conversion_factor);
@@ -178,6 +176,9 @@ private:
     pfcModel_ptr m_root_asm_model_ptr{ nullptr }; /**< Handle to the Creo model. */
     pfcSession_ptr m_session_ptr{ nullptr }; /**< Handle to the Creo session. */
     bool m_need_to_move_link_frames_to_be_compatible_with_URDF{ false }; /**< Flag indicating whether to move link frames to be compatible with URDF. */
+    std::map<ComponentId, pfcModel_ptr> compID_modelhdl_map; ///< Occurrence path to Creo model handle for reference validation; includes the root at the empty path, subassemblies, parts and excluded skeletons.
+    std::map<std::string, size_t> model_counts; ///< Original CAD model full name to number of collected part occurrences; determines whether mesh names need path suffixes.
+    std::set<std::string> mesh_file_names; ///< Lowercase mesh basenames already assigned in this export, used to reject filename collisions even when mesh export is disabled.
 };
 
 class Creo2UrdfAccess : public pfcUICommandAccessListener {

@@ -16,8 +16,9 @@ ElementTreeManager::ElementTreeManager()
 
 ElementTreeManager::~ElementTreeManager() {}
 
-bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map, const ComponentId& ownerId, const std::map<ComponentId, pfcModel_ptr>& contexts)
+bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, std::map<std::string, JointInfo>& joint_info_map, const ComponentId& ownerId, const std::map<ComponentId, pfcModel_ptr>& compID_mdl_map)
 {
+    // Load the feature state used by reference, constraint-set and datum extraction.
     wfeat = wfcWFeature::cast(feat);
 
     try
@@ -34,23 +35,27 @@ bool ElementTreeManager::populateJointInfoFromElementTree(pfcFeature_ptr feat, s
     JointInfo joint;
 
 
-    if (!retrieveSolidReferences(ownerId, contexts)) {
+    // Resolve occurrence identities before assigning the joint type or datum.
+    if (!retrieveSolidReferences(ownerId, compID_mdl_map)) {
         return false;
     }
-    joint.child_link_id = child_id;
-    joint.parent_link_id = parent_id;
+    joint.child_link_id = m_child_id;
+    joint.parent_link_id = m_parent_id;
+    // Use the full feature path as the temporary joint key; naming happens later.
     auto featureId = ownerId;
     featureId.push_back(feat->GetId());
     std::string joint_name = componentIdString(featureId);
+    // Convert the current feature's placement set (PIN, SLIDER, etc.) to a joint type.
     const auto type = proAsmCompSetType_to_JointType.find(static_cast<ProAsmcompSetType>(getConstraintType()));
     if (type == proAsmCompSetType_to_JointType.end()) {
         return false;
     }
     joint.type = type->second;
 
+    // Select the assembly-side datum required to construct the joint frame.
     if (joint.type == JointType::Revolute || joint.type == JointType::Linear)
     {
-        // We assume that one axis is used to defined the revolute or linear joint
+        // A revolute or prismatic joint is assumed to use one aligned axis.
         joint.datum_name = getConstraintDatum(feat, 
             pfcComponentConstraintType::pfcASM_CONSTRAINT_ALIGN,
             pfcModelItemType::pfcITEM_AXIS);
@@ -94,10 +99,12 @@ int ElementTreeManager::getConstraintType()
     if (!sets) {
         return -1;
     }
+    // Only one placement set per feature is supported; never silently choose one.
     auto children = sets->GetChildren();
     if (children && children->getarraysize() > 1) {
         throw std::runtime_error("Multiple constraint sets per component are not supported");
     }
+    // Read COMPONENT_SETS / COMPONENT_SET / COMPONENT_SET_TYPE from the stored tree.
     Item = wfcElemPathItem::Create(wfcELEM_PATH_ITEM_TYPE_ID, wfcPRO_E_COMPONENT_SET);
     elemItems->append(Item);
     Item = wfcElemPathItem::Create(wfcELEM_PATH_ITEM_TYPE_ID, wfcPRO_E_COMPONENT_SET_TYPE);
@@ -140,75 +147,84 @@ string ElementTreeManager::getConstraintDatum(pfcFeature_ptr feat, pfcComponentC
     return "";
 }
 
-bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId,
-    const std::map<ComponentId, pfcModel_ptr>& contexts)
+bool ElementTreeManager::resolveReferenceOccurrence(pfcSelection_ptr selection, const ComponentId& fallback, const ComponentId& componentId, const std::map<ComponentId, pfcModel_ptr>& compID_mdl_map, ComponentId& result, std::string& failure) const {
+    // Keep the reason separate so the caller can add the feature and constraint index.
+    const auto reject = [&](const std::string& reason) {
+        failure = reason;
+        return false;
+    };
+    if (!selection || !selection->GetSelItem()) {
+        return reject("missing selected item");
+    }
+    // The selected datum's owning model must agree with the resolved occurrence.
+    const pfcModel_ptr selectedModel = pfcModel::cast(selection->GetSelItem()->GetDBParent());
+    if (!selectedModel) {
+        return reject("selected item has no model owner");
+    }
+    const auto selectedName = std::string(selectedModel->GetFullName());
+    auto path = selection->GetPath();
+    // A local selection has no rooted path: validate it against the expected side.
+    if (!path || !path->GetRoot()) {
+        if (path && path->GetComponentIds() && path->GetComponentIds()->getarraysize() != 0) {
+            return reject("path has IDs but no root; selected model=" + selectedName);
+        }
+        const auto modelIt = compID_mdl_map.find(fallback);
+        if (modelIt == compID_mdl_map.end() || !sameComponentModel(modelIt->second, selectedModel)) {
+            return reject("local reference owner mismatch; selected model=" + selectedName +
+                          "; expected occurrence=[" + componentIdString(fallback) + "]");
+        }
+        result = fallback;
+        return true;
+    }
+    // Locate the selection's root along this feature's ancestry. A global model
+    // lookup would confuse separate instances of a repeated subassembly.
+    const pfcModel_ptr rootModel = pfcModel::cast(path->GetRoot());
+    auto prefix = componentId;
+    bool found = false;
+    for (;;) {
+        const auto modelIt = compID_mdl_map.find(prefix);
+        if (modelIt != compID_mdl_map.end() && sameComponentModel(modelIt->second, rootModel)) {
+            if (found) {
+                return reject("ambiguous path root in occurrence ancestry");
+            }
+            result = prefix;
+            found = true;
+        }
+        if (prefix.empty()) {
+            break;
+        }
+        prefix.pop_back();
+    }
+    if (!found) {
+        return reject("path root is outside occurrence ancestry; root=" +
+                              std::string(rootModel->GetFullName()) + "; selected model=" + selectedName);
+    }
+    // Prefix the selection's relative IDs with its root occurrence path.
+    auto ids = path->GetComponentIds();
+    if (ids) {
+        for (int i = 0; i < ids->getarraysize(); ++i) {
+            result.push_back(ids->get(i));
+        }
+    }
+    // Verify both the full occurrence path and the model at its leaf.
+    const auto leaf = compID_mdl_map.find(result);
+    if (leaf == compID_mdl_map.end()) {
+        return reject("occurrence not in inventory: [" + componentIdString(result) +
+                                              "]; selected model=" + selectedName);
+    }
+    if (!sameComponentModel(leaf->second, selectedModel)) {
+        return reject("path leaf mismatch at [" + componentIdString(result) + "]; inventory model=" +
+                      std::string(leaf->second->GetFullName()) + "; selected model=" + selectedName);
+    }
+    return true;
+}
+
+bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId, const std::map<ComponentId, pfcModel_ptr>& compID_mdl_map)
 {
-    // A reference path is relative to its own root. Resolve that root only
-    // along this feature's occurrence ancestry, never by a global model name.
+    // Identify the feature occurrence; its owner path excludes the feature ID.
     auto componentId = ownerId;
     componentId.push_back(wfeat->GetId());
     std::string failure;
-    auto normalize = [&](pfcSelection_ptr selection, const ComponentId& fallback, ComponentId& result) {
-        const auto reject = [&](const std::string& reason) { failure = reason; return false; };
-        if (!selection || !selection->GetSelItem()) {
-            return reject("missing selected item");
-        }
-        const pfcModel_ptr selectedModel = pfcModel::cast(selection->GetSelItem()->GetDBParent());
-        if (!selectedModel) {
-            return reject("selected item has no model owner");
-        }
-        const auto selectedName = std::string(selectedModel->GetFullName());
-        auto path = selection->GetPath();
-        if (!path || !path->GetRoot()) {
-            if (path && path->GetComponentIds() && path->GetComponentIds()->getarraysize() != 0) {
-                return reject("path has IDs but no root; selected model=" + selectedName);
-            }
-            const auto context = contexts.find(fallback);
-            if (context == contexts.end() || !sameComponentModel(context->second, selectedModel)) {
-                return reject("local reference owner mismatch; selected model=" + selectedName +
-                              "; expected occurrence=[" + componentIdString(fallback) + "]");
-            }
-            result = fallback;
-            return true;
-        }
-        const pfcModel_ptr rootModel = pfcModel::cast(path->GetRoot());
-        auto prefix = componentId;
-        bool found = false;
-        for (;;) {
-            const auto context = contexts.find(prefix);
-            if (context != contexts.end() && sameComponentModel(context->second, rootModel)) {
-                if (found) {
-                    return reject("ambiguous path root in occurrence ancestry");
-                }
-                result = prefix;
-                found = true;
-            }
-            if (prefix.empty()) {
-                break;
-            }
-            prefix.pop_back();
-        }
-        if (!found) {
-            return reject("path root is outside occurrence ancestry; root=" +
-                                  std::string(rootModel->GetFullName()) + "; selected model=" + selectedName);
-        }
-        auto ids = path->GetComponentIds();
-        if (ids) {
-            for (int i = 0; i < ids->getarraysize(); ++i) {
-                result.push_back(ids->get(i));
-            }
-        }
-        const auto leaf = contexts.find(result);
-        if (leaf == contexts.end()) {
-            return reject("occurrence not in inventory: [" + componentIdString(result) +
-                                                  "]; selected model=" + selectedName);
-        }
-        if (!sameComponentModel(leaf->second, selectedModel)) {
-            return reject("path leaf mismatch at [" + componentIdString(result) + "]; inventory model=" +
-                          std::string(leaf->second->GetFullName()) + "; selected model=" + selectedName);
-        }
-        return true;
-    };
 
     // Creo expects the path to the assembly owning the feature, not to the
     // feature itself. This preserves external references in nested assemblies.
@@ -216,7 +232,7 @@ bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId,
     for (int id : ownerId) {
         ownerIds->append(id);
     }
-    auto ownerPath = pfcCreateComponentPath(pfcAssembly::cast(contexts.at(ComponentId{})), ownerIds);
+    auto ownerPath = pfcCreateComponentPath(pfcAssembly::cast(compID_mdl_map.at(ComponentId{})), ownerIds);
     constraints = nullptr;
     try {
         constraints = pfcComponentFeat::cast(wfeat)->GetConstraintsWithCompPath(ownerPath);
@@ -231,6 +247,8 @@ bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId,
     if (!constraints) {
         return false;
     }
+    // Each complete constraint must resolve to the same ordered pair of occurrences.
+    // Keep constraints cached for the subsequent datum lookup.
     bool found = false;
     for (int i = 0; i < constraints->getarraysize(); ++i) {
         auto constraint = constraints->get(i);
@@ -245,26 +263,27 @@ bool ElementTreeManager::retrieveSolidReferences(const ComponentId& ownerId,
         ComponentId p, c;
         const auto errorPrefix = "Cannot resolve joint references at component " + componentIdString(componentId) +
                                  ", constraint " + std::to_string(i);
-        if (!normalize(parent, ownerId, p)) {
+        // Rootless references use different fallback occurrences on the two sides.
+        if (!resolveReferenceOccurrence(parent, ownerId, componentId, compID_mdl_map, p, failure)) {
             throw std::runtime_error(errorPrefix + " (assembly reference): " + failure);
         }
-        if (!normalize(child, componentId, c)) {
+        if (!resolveReferenceOccurrence(child, componentId, componentId, compID_mdl_map, c, failure)) {
             throw std::runtime_error(errorPrefix + " (component reference): " + failure);
         }
         // A valid reference to an intentionally excluded solid is not an
         // invalid occurrence. No URDF joint can be created for this feature.
-        if (pfcSolid::cast(contexts.at(p))->GetIsSkeleton() ||
-            pfcSolid::cast(contexts.at(c))->GetIsSkeleton()) {
+        if (pfcSolid::cast(compID_mdl_map.at(p))->GetIsSkeleton() ||
+            pfcSolid::cast(compID_mdl_map.at(c))->GetIsSkeleton()) {
             return false;
         }
         if (p == c) {
             throw std::runtime_error("Joint references the same occurrence twice: " + componentIdString(p));
         }
-        if (found && (p != parent_id || c != child_id)) {
+        if (found && (p != m_parent_id || c != m_child_id)) {
             throw std::runtime_error("Multiple link pairs/constraint sets are unsupported at component " + componentIdString(componentId));
         }
-        parent_id = p;
-        child_id = c;
+        m_parent_id = p;
+        m_child_id = c;
         found = true;
     }
     return found;
