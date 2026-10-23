@@ -1,0 +1,40 @@
+{
+  "name": "idyntree",
+  "version": "15.0.1",
+  "description": "Multibody Dynamics Library designed for Free Floating Robots, with native JSON model I/O enabled.",
+  "homepage": "https://github.com/gbionics/idyntree",
+  "license": "BSD-3-Clause",
+  "supports": "!xbox",
+  "dependencies": [
+    "eigen3",
+    "libxml2",
+    "nlohmann-json",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
+  "default-features": [
+    "assimp"
+  ],
+  "features": {
+    "assimp": {
+      "description": "Add support for loading meshes",
+      "dependencies": [
+        "assimp"
+      ]
+    },
+    "irrlicht": {
+      "description": "Add support for irrlicht-based visualizer",
+      "supports": "!windows & !osx",
+      "dependencies": [
+        "glfw3",
+        "irrlicht"
+      ]
+    }
+  }
+}

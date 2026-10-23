@@ -450,7 +450,7 @@ void Creo2Urdf::runExport() {
                 throw std::runtime_error("Failed to add joint " + joint_name);
             }
         }
-            else if (joint_info.second.type == JointType::Spherical) {
+        else if (joint_info.second.type == JointType::Spherical) {
             iDynTree::SphericalJoint joint;
             joint.setAttachedLinks(
                 idyn_model.getLinkIndex(parent_link_name),
@@ -459,7 +459,24 @@ void Creo2Urdf::runExport() {
             joint.setRestTransform(parentLink_H_childLink);
             iDynTree::Position center_in_parent_link = iDynTree::Position::Zero();
             std::tie(ret, center_in_parent_link) = getPointCoordFromPart(parent_model, datum_name, scale);
+            if (!ret) {
+                printToMessageWindow("Failed to get the joint center from the part " + parent_link_name + ", skipping " + joint_name, c2uLogLevel::WARN);
+                if (warningsAreFatal) {
+                    return;
+                }
+                else {
+                    continue;
+                }
+            }
             joint.setJointCenter(idyn_model.getLinkIndex(parent_link_name), center_in_parent_link);
+
+            // A spherical joint is URDF-compatible only when its center
+            // coincides with the child-link origin (both expressed in the parent).
+            if (parent_link_frame == "CSYS" &&
+                (iDynTree::toEigen(center_in_parent_link) -
+                 iDynTree::toEigen(parentLink_H_childLink.getPosition())).norm() > 1e-7) {
+                m_need_to_move_link_frames_to_be_compatible_with_URDF = true;
+            }
             if (idyn_model.addJoint(joint_name, &joint) == iDynTree::JOINT_INVALID_INDEX) {
                 throw std::runtime_error("Failed to add joint " + joint_name);
             }
@@ -557,7 +574,19 @@ void Creo2Urdf::runExport() {
         export_options.xmlBlobs.push_back(gazebo_pose_xml_str);
     }
 
-    exportModelToUrdf(idyn_model, export_options);
+    // Dump the native model before the URDF exporter moves link frames or
+    // represents spherical joints and additional frames with URDF-only links.
+    iDynTree::ModelExporter json_exporter;
+    if (!json_exporter.init(idyn_model) ||
+        !json_exporter.exportModelToFile(m_output_path + "\\model.json", "idyntree-model-json")) {
+        printToMessageWindow("Error exporting model.json. See iDynTreeErrors.txt for details", c2uLogLevel::WARN);
+        return;
+    }
+    printToMessageWindow("model.json created successfully!");
+
+    if (!exportModelToUrdf(idyn_model, export_options)) {
+        return;
+    }
 
     // Let's clear the map in case of multiple click TODO UNIFY
     m_yaml_path.clear();
@@ -611,18 +640,25 @@ bool Creo2Urdf::setJointParametersFromCsv(const rapidcsv::Document& csv, const s
 bool Creo2Urdf::exportModelToUrdf(iDynTree::Model mdl, iDynTree::ModelExporterOptions options) {
     iDynTree::ModelExporter mdl_exporter;
 
-    // Convert modelToExport in a URDF-compatible model (using the default base link)
-    iDynTree::Model modelToExportURDFCompatible;
-
-    if (m_need_to_move_link_frames_to_be_compatible_with_URDF) {
-        bool ok = iDynTree::moveLinkFramesToBeCompatibleWithURDFWithGivenBaseLink(mdl, modelToExportURDFCompatible);
-        if (!ok) {
-            printToMessageWindow("Failed to move link frames to be URDF compatible", c2uLogLevel::WARN);
+    // The frame-moving helper handles revolute/prismatic joints, so expand
+    // spherical joints on this URDF-only copy before moving link frames.
+    if (options.exportSphericalJointsAsThreeRevoluteJoints) {
+        iDynTree::Model modelWithConvertedSphericalJoints;
+        if (!iDynTree::convertSphericalJointsToThreeRevoluteJoints(
+            mdl, modelWithConvertedSphericalJoints,
+            options.sphericalJointFakeLinkPrefix, options.sphericalJointRevoluteJointPrefix)) {
+            printToMessageWindow("Failed to convert spherical joints for URDF export", c2uLogLevel::WARN);
             return false;
         }
+        mdl = modelWithConvertedSphericalJoints;
+        options.exportSphericalJointsAsThreeRevoluteJoints = false;
     }
-    else {
-        modelToExportURDFCompatible = mdl;
+
+    // Always normalize the URDF copy, using its default base link.
+    iDynTree::Model modelToExportURDFCompatible;
+    if (!iDynTree::moveLinkFramesToBeCompatibleWithURDFWithGivenBaseLink(mdl, modelToExportURDFCompatible)) {
+        printToMessageWindow("Failed to move link frames to be URDF compatible", c2uLogLevel::WARN);
+        return false;
     }
 
     mdl_exporter.init(modelToExportURDFCompatible);

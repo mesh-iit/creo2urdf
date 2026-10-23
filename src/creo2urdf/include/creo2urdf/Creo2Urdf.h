@@ -29,7 +29,7 @@
 
 /**
  * @class Creo2Urdf
- * @brief A class that exports a Creo mechanism assembly to URDF.
+ * @brief A class that exports a Creo mechanism assembly to URDF and native iDynTree JSON.
  *
  * This class inherits from pfcUICommandActionListener and provides functionality
  * to export a Creo model to URDF format, incorporating options and configurations.
@@ -42,7 +42,7 @@ public:
      * @details This function is ran when the user clicks on the Creo2Urdf button, and
      * contains the main loop of the plugin. 
      * By reading the kinematic and dynamic information of the assembly, it creates an iDynTree model. 
-     * The ModelExporter class of iDynTree is then used to create the URDF file.  
+     * The ModelExporter class of iDynTree is then used to create the URDF and JSON files.
      * The order of operations is the following:
      *  - Prompt the user to select a .yaml file containing the export config
      *  - Prompt the user to select a .csv file containing joint info
@@ -57,7 +57,7 @@ public:
      *  - Add the sensors to the iDynTree Model
      *  - Add the exported frames to the links
      *  - Add the export options to the iDynTree model exporter
-     *  - Export the iDynTree model to urdf file
+     *  - Export the native iDynTree model to model.json and the URDF-compatible model to model.urdf
      */
     void OnCommand() override;
 
